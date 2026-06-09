@@ -1,0 +1,48 @@
+{
+  "name": "code",
+  "display_name": "Code Squad",
+  "description": "Software development lifecycle: write → review → [rewrite] → bug hunt → architect → test",
+  "leader": "code_squad",
+  "members": [
+    {
+      "name": "code_writer",
+      "agent": "CodeWriterAgent",
+      "role": "Generates code from natural language descriptions",
+      "keywords": ["write code", "implement", "function", "class", "algorithm"],
+      "model": "reason"
+    },
+    {
+      "name": "code_reviewer",
+      "agent": "CodeReviewerAgent",
+      "role": "Reviews code for quality, style, best practices",
+      "keywords": ["review", "refactor", "style", "quality"],
+      "model": "reason"
+    },
+    {
+      "name": "bug_hunter",
+      "agent": "BugHunterAgent",
+      "role": "Identifies bugs, security issues, edge cases",
+      "keywords": ["bug", "debug", "security", "vulnerability"],
+      "model": "reason"
+    },
+    {
+      "name": "system_architect",
+      "agent": "SystemArchitectAgent",
+      "role": "Designs system architecture and patterns",
+      "keywords": ["architect", "architecture", "design pattern", "system design"],
+      "model": "reason"
+    },
+    {
+      "name": "test_engineer",
+      "agent": "TestEngineerAgent",
+      "role": "Writes unit tests and integration tests",
+      "keywords": ["test", "unit test", "pytest", "testing"],
+      "model": "fast"
+    }
+  ],
+  "workflow": ["code_writer", "code_reviewer", "code_writer(loop, max 2)", "bug_hunter", "system_architect", "test_engineer"],
+  "routing": "sequential_with_review_loop",
+  "rewrite_iterations": 2,
+  "api_endpoint": "POST /api/squads/code/run",
+  "cli_usage": "python main.py squad_run code --task 'Write a function to calculate fibonacci numbers'"
+}

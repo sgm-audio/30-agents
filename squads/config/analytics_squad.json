@@ -1,0 +1,41 @@
+{
+  "name": "analytics",
+  "display_name": "Analytics Squad",
+  "description": "Data analysis and decision-making: analyze → plan → critique → decide",
+  "leader": "analytics_squad",
+  "members": [
+    {
+      "name": "data_analyst",
+      "agent": "DataAnalystAgent",
+      "role": "Analyzes data, identifies patterns, generates insights",
+      "keywords": ["analyze", "data", "insight", "pattern", "trend", "statistics"],
+      "model": "reason"
+    },
+    {
+      "name": "planner",
+      "agent": "PlannerAgent",
+      "role": "Creates detailed execution plans",
+      "keywords": ["plan", "strategy", "roadmap", "execute"],
+      "model": "reason"
+    },
+    {
+      "name": "critic",
+      "agent": "CriticAgent",
+      "role": "Reviews plans for flaws, risks, and edge cases",
+      "keywords": ["review", "critique", "risk", "flaw", "issue"],
+      "model": "reason"
+    },
+    {
+      "name": "decision_engine",
+      "agent": "DecisionEngineAgent",
+      "role": "Makes final recommendations and decisions",
+      "keywords": ["decide", "recommend", "choice", "decision"],
+      "model": "reason"
+    }
+  ],
+  "workflow": ["data_analyst", "planner", "critic", "decision_engine"],
+  "routing": "sequential_with_loop",
+  "review_iterations": 2,
+  "api_endpoint": "POST /api/squads/analytics/run",
+  "cli_usage": "python main.py squad_run analytics --task 'Analyze sales data and recommend actions'"
+}

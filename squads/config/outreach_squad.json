@@ -1,0 +1,33 @@
+{
+  "name": "outreach",
+  "display_name": "Outreach Squad",
+  "description": "Lead generation and cold email pipeline: discover businesses → find emails → write outreach",
+  "leader": "outreach_squad",
+  "members": [
+    {
+      "name": "lead_scout",
+      "agent": "LeadScoutAgent",
+      "role": "Discovers local businesses without websites",
+      "keywords": ["find leads", "discover businesses", "no website", "lead scout"],
+      "model": "fast"
+    },
+    {
+      "name": "email_finder",
+      "agent": "EmailFinderAgent",
+      "role": "Resolves email addresses for leads",
+      "keywords": ["find email", "enrich leads", "resolve emails"],
+      "model": "fast"
+    },
+    {
+      "name": "outreach_writer",
+      "agent": "OutreachWriterAgent",
+      "role": "Generates personalized cold emails",
+      "keywords": ["cold email", "outreach", "write email", "generate email"],
+      "model": "fast"
+    }
+  ],
+  "workflow": ["lead_scout", "email_finder", "outreach_writer"],
+  "routing": "sequential",
+  "api_endpoint": "POST /api/squads/outreach/run",
+  "cli_usage": "python main.py squad_run outreach --city Vancouver --max-leads 50"
+}

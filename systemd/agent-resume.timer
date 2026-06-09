@@ -1,0 +1,11 @@
+[Unit]
+Description=Agent system health-check timer (every 5 minutes)
+Requires=agent-resume.service
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

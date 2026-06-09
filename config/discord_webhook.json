@@ -1,0 +1,12 @@
+{
+  "webhook_url": "",
+  "enabled": false,
+  "notify_on": ["complete", "error"],
+  "daily_summary_time": "09:00",
+  "daily_summary_enabled": false,
+  "alert_thresholds": {
+    "error_rate": 0.1,
+    "timeout_rate": 0.05
+  },
+  "health_check_interval_hours": 6
+}
