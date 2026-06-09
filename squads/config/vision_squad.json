@@ -1,0 +1,40 @@
+{
+  "name": "vision",
+  "display_name": "Vision Squad",
+  "description": "Image/video/audio processing and multimodal synthesis",
+  "leader": "vision_squad",
+  "members": [
+    {
+      "name": "vision_analyst",
+      "agent": "VisionAnalystAgent",
+      "role": "Analyzes images (OCR, description, visual Q&A)",
+      "keywords": ["image", "photo", "visual", "analyze image", "OCR", "describe"],
+      "model": "vision"
+    },
+    {
+      "name": "embedding_engine",
+      "agent": "EmbeddingEngineAgent",
+      "role": "Generates embeddings for semantic search and similarity",
+      "keywords": ["embed", "embedding", "vector", "semantic search", "similarity"],
+      "model": "embed"
+    },
+    {
+      "name": "multimodal_synthesizer",
+      "agent": "MultimodalSynthesizerAgent",
+      "role": "Synthesizes information across text, image, audio modalities",
+      "keywords": ["multimodal", "synthesize", "combine", "cross-modal"],
+      "model": "reason"
+    },
+    {
+      "name": "media_coordinator",
+      "agent": "MediaCoordinatorAgent",
+      "role": "Coordinates media processing and format conversions",
+      "keywords": ["media", "convert", "format", "audio", "video", "transcode"],
+      "model": "fast"
+    }
+  ],
+  "workflow": ["vision_analyst", "embedding_engine", "multimodal_synthesizer", "media_coordinator"],
+  "routing": "sequential",
+  "api_endpoint": "POST /api/squads/vision/run",
+  "cli_usage": "python main.py squad_run vision --task 'Analyze this image and describe what you see'"
+}

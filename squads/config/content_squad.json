@@ -1,0 +1,47 @@
+{
+  "name": "content",
+  "display_name": "Content Squad",
+  "description": "Content creation and refinement: write → edit → [summarize|translate] → strategize",
+  "leader": "content_squad",
+  "members": [
+    {
+      "name": "writer",
+      "agent": "WriterAgent",
+      "role": "Generates long-form written content",
+      "keywords": ["write", "create content", "essay", "article", "draft"],
+      "model": "reason"
+    },
+    {
+      "name": "editor",
+      "agent": "EditorAgent",
+      "role": "Revises and polishes content",
+      "keywords": ["edit", "revise", "polish", "rewrite", "improve"],
+      "model": "fast"
+    },
+    {
+      "name": "summarizer",
+      "agent": "SummarizerAgent",
+      "role": "Creates concise summaries of content",
+      "keywords": ["summarize", "summary", "brief", "condense", "tl;dr"],
+      "model": "fast"
+    },
+    {
+      "name": "translator",
+      "agent": "TranslatorAgent",
+      "role": "Translates content between languages",
+      "keywords": ["translate", "translation", "french", "spanish", "language"],
+      "model": "fast"
+    },
+    {
+      "name": "content_strategist",
+      "agent": "ContentStrategistAgent",
+      "role": "Evaluates content for SEO, engagement, brand alignment",
+      "keywords": ["strategy", "SEO", "engagement", "audience"],
+      "model": "reason"
+    }
+  ],
+  "workflow": ["writer", "editor", "conditional(summarizer|translator)", "content_strategist"],
+  "routing": "sequential_with_conditions",
+  "api_endpoint": "POST /api/squads/content/run",
+  "cli_usage": "python main.py squad_run content --task 'Write an article about AI agents'"
+}

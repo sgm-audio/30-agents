@@ -1,0 +1,17 @@
+[Unit]
+Description=30-Agent Cognitive System API Server
+After=ollama.service redis-agent.service
+Requires=ollama.service
+
+[Service]
+Type=simple
+WorkingDirectory=/var/home/SGM/30_agents
+ExecStart=/var/home/SGM/30_agents/venv/bin/python main.py serve
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

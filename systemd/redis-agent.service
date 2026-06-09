@@ -1,0 +1,14 @@
+[Unit]
+Description=Redis (Podman) for 30-Agent System
+After=default.target
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/podman start redis-agent
+ExecStop=/usr/bin/podman stop redis-agent
+ExecReload=/usr/bin/podman restart redis-agent
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

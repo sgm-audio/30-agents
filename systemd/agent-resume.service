@@ -1,0 +1,29 @@
+[Unit]
+Description=Agent system health-check and auto-restart
+# Runs after every timer tick to ensure Ollama, Redis, and the
+# agent server are still alive.  This replaces a suspend.target
+# hook (which is a *system* unit and is not reachable from
+# systemd --user sessions).
+
+[Service]
+Type=oneshot
+# Restart Ollama if it is not responding
+ExecStart=/bin/bash -c '\
+    if ! curl -sf http://127.0.0.1:11434/ >/dev/null 2>&1; then \
+        systemctl --user restart ollama; \
+        sleep 3; \
+    fi; \
+    if ! podman exec redis-agent redis-cli ping 2>/dev/null | grep -q PONG; then \
+        podman start redis-agent 2>/dev/null || true; \
+        sleep 2; \
+    fi; \
+    systemctl --user is-failed agent-system.service >/dev/null 2>&1 && \
+        systemctl --user reset-failed agent-system.service; \
+    systemctl --user is-active agent-system.service >/dev/null 2>&1 || \
+        systemctl --user start agent-system.service 2>/dev/null || true'
+RemainAfterExit=no
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

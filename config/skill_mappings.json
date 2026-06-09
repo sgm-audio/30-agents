@@ -1,0 +1,12 @@
+{
+  "academic-paper": {"agent": "writer", "relevance": 90, "category": "content"},
+  "academic-paper-reviewer": {"agent": "critic", "relevance": 90, "category": "content"},
+  "ai-agent-multi-agent-orchestration-langgraph-autogen": {"agent": "orchestrator", "relevance": 95, "category": "engineering"},
+  "audio-analysis": {"agent": "data_analyst", "relevance": 90, "category": "audio"},
+  "coding": {"agent": "code_writer", "relevance": 95, "category": "engineering"},
+  "deep-research": {"agent": "web_researcher", "relevance": 95, "category": "research"},
+  "machine-learning": {"agent": "data_analyst", "relevance": 95, "category": "ml"},
+  "qa": {"agent": "test_engineer", "relevance": 95, "category": "engineering"},
+  "review": {"agent": "code_reviewer", "relevance": 95, "category": "engineering"},
+  "juce-framework-mastery": {"agent": "code_writer", "relevance": 95, "category": "dsp"}
+}

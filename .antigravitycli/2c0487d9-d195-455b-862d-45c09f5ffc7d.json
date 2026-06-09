@@ -1,0 +1,14 @@
+{
+  "id":  "2c0487d9-d195-455b-862d-45c09f5ffc7d",
+  "name":  "/media/sgm/bazzite/home/SGM/30_agents",
+  "projectResources":  {
+    "resources":  [
+      {
+        "gitFolder":  {
+          "folderUri":  "file:///media/sgm/bazzite/home/SGM/30_agents",
+          "allowWrite":  true
+        }
+      }
+    ]
+  }
+}

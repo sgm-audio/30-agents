@@ -1,0 +1,48 @@
+{
+  "name": "seo",
+  "display_name": "SEO Squad",
+  "description": "Full SEO audit and strategy: on-page + technical + content + backlinks + design concept",
+  "leader": "seo_squad",
+  "members": [
+    {
+      "name": "on_page_seo",
+      "agent": "OnPageSEOAgent",
+      "role": "Analyzes meta tags, headings, keyword density, internal links",
+      "keywords": ["on page seo", "meta tag", "heading", "keyword density"],
+      "model": "fast"
+    },
+    {
+      "name": "technical_seo",
+      "agent": "TechnicalSEOAgent",
+      "role": "Analyzes site speed, mobile, schema, Core Web Vitals",
+      "keywords": ["technical seo", "speed", "mobile", "schema", "core web vitals"],
+      "model": "reason"
+    },
+    {
+      "name": "content_seo",
+      "agent": "ContentSEOAgent",
+      "role": "Analyzes content quality, readability, keyword gaps",
+      "keywords": ["content seo", "readability", "word count", "E-E-A-T"],
+      "model": "fast"
+    },
+    {
+      "name": "backlink_agent",
+      "agent": "BacklinkAgent",
+      "role": "Finds backlink opportunities and local citations",
+      "keywords": ["backlink", "link building", "citation", "guest post"],
+      "model": "fast"
+    },
+    {
+      "name": "web_design_concept",
+      "agent": "WebDesignConceptAgent",
+      "role": "Researches design trends, proposes redesign concepts",
+      "keywords": ["design", "redesign", "UX", "UI", "trends"],
+      "model": "fast"
+    }
+  ],
+  "workflow": ["on_page_seo", "technical_seo", "content_seo", "backlink_agent", "web_design_concept"],
+  "routing": "sequential",
+  "parallel_agents": ["on_page_seo", "technical_seo", "content_seo"],
+  "api_endpoint": "POST /api/squads/seo/run",
+  "cli_usage": "python main.py squad_run seo --url https://example.com"
+}
