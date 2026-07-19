@@ -1,0 +1,29 @@
+---
+description: Use the 30agents MCP tools when the local agent API can fulfill outreach, SEO, squad, or orchestrated tasks.
+alwaysApply: true
+---
+
+# 30-Agent MCP tools
+
+This workspace exposes a local MCP server named `30agents` (stdio bridge → `http://127.0.0.1:8000`).
+
+## When to use
+
+Prefer these MCP tools over reinventing pipelines:
+
+- General multi-agent work → `agent_chat`
+- Lead discovery / cold email → `outreach_*` or `run_squad` with `squad_name=outreach`
+- SEO / backlinks / redesign → `seo_*`, `design_concept`, or `run_squad` with `squad_name=seo`
+- Grouped specialists → `list_squads` then `run_squad` (analytics, content, code, vision)
+- Connectivity check → `health_check` first if tools fail
+
+## Prerequisites
+
+The FastAPI server must be running:
+
+```bash
+python main.py serve
+# or: ./run.sh --no-tmux
+```
+
+`outreach_send` and `outreach_pipeline` default to `dry_run=true` — only set `dry_run=false` when the user explicitly asks to send real email.

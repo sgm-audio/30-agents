@@ -25,10 +25,11 @@
 - [⬜] Verify agents visible in Multica Desktop
 
 ### S1.4 MCP Bridge — ✅ Done
-- [✅] Created `~/.config/opencode/mcp_bridge.py` (11 tools)
-- [✅] Updated `~/.config/opencode/opencode.jsonc` with 30agents MCP server
-- [✅] Verified tools/list returns all tools
-- [✅] Added ping handler
+- [✅] Created in-repo `tools/mcp_bridge.py` (14 tools: chat, agents, squads, outreach, SEO, design, health)
+- [✅] Cursor project wiring: `.cursor/mcp.json` + `.cursor/rules/30-agents-mcp.mdc`
+- [✅] Local Cursor plugin scaffold at `~/.cursor/plugins/local/30-agents/`
+- [✅] Unit tests: `tests/test_mcp_bridge.py` (protocol + tool proxy)
+- [✅] Verified tools/list + initialize handshake over stdio
 - [✅] REST endpoints tested: scrape, enrich, generate, send all PASS
 
 ### S1.5 Skills Migration — ✅ Done
