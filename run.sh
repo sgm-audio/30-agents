@@ -36,19 +36,34 @@ info "Ollama: OK"
 
 # ── Ensure Redis is running ───────────────────────────────────
 info "Checking Redis..."
-podman start redis-agent > /dev/null 2>&1 || \
-podman run -d --name redis-agent --restart always -p 6379:6379 \
-    docker.io/library/redis:7-alpine \
-    redis-server --save 60 1 --loglevel warning > /dev/null 2>&1 || true
-
-# Test Redis
-for i in {1..5}; do
-    if podman exec redis-agent redis-cli ping 2>/dev/null | grep -q PONG; then
-        info "Redis: OK"
-        break
+if redis-cli ping >/dev/null 2>&1; then
+    info "Redis: OK"
+else
+    # Prefer local redis-server, then docker/podman container
+    if command -v redis-server >/dev/null 2>&1; then
+        if command -v service >/dev/null 2>&1; then
+            sudo service redis-server start >/dev/null 2>&1 || true
+        fi
+        redis-server --daemonize yes --port 6379 >/dev/null 2>&1 || true
+    elif command -v docker >/dev/null 2>&1; then
+        docker start redis-agent >/dev/null 2>&1 || \
+            docker run -d --name redis-agent --restart unless-stopped -p 6379:6379 \
+            redis:7-alpine >/dev/null 2>&1 || true
+    elif command -v podman >/dev/null 2>&1; then
+        podman start redis-agent >/dev/null 2>&1 || \
+            podman run -d --name redis-agent --restart always -p 6379:6379 \
+            docker.io/library/redis:7-alpine \
+            redis-server --save 60 1 --loglevel warning >/dev/null 2>&1 || true
     fi
-    sleep 2
-done
+
+    for i in {1..5}; do
+        if redis-cli ping >/dev/null 2>&1; then
+            info "Redis: OK"
+            break
+        fi
+        sleep 1
+    done
+fi
 
 # ── No-tmux mode ─────────────────────────────────────────────
 if [[ "${1:-}" == "--no-tmux" ]]; then

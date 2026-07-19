@@ -19,11 +19,8 @@ Prefer these MCP tools over reinventing pipelines:
 
 ## Prerequisites
 
-The FastAPI server must be running:
-
 ```bash
-python main.py serve
-# or: ./run.sh --no-tmux
+./start   # ensures venv + Redis + API
 ```
 
 `outreach_send` and `outreach_pipeline` default to `dry_run=true` — only set `dry_run=false` when the user explicitly asks to send real email.
