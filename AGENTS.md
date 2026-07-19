@@ -257,13 +257,37 @@ Multica connects an MCP-compatible client (e.g. opencode, Claude Desktop) to the
 
 ### MCP Bridge — Expose 30 Agents as MCP Tools
 
-The bridge (`~/.config/opencode/mcp_bridge.py`) implements the Model Context Protocol over stdio. It proxies MCP `tools/list` and `tools/call` requests to the 30-agent REST API (`localhost:8000`).
+The in-repo bridge (`tools/mcp_bridge.py`) implements the Model Context Protocol over stdio. It proxies MCP `tools/list` and `tools/call` requests to the 30-agent REST API (`localhost:8000`).
 
-#### Exposed Tools (11 total)
+#### Cursor wiring (primary)
+
+Project MCP config is committed at `.cursor/mcp.json`. Open this repo in Cursor, start the API (`python main.py serve`), then verify **Settings → MCP** shows `30agents` connected.
+
+```json
+{
+  "mcpServers": {
+    "30agents": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["${workspaceFolder}/tools/mcp_bridge.py"],
+      "env": {
+        "AGENTS30_API_BASE": "http://127.0.0.1:8000"
+      }
+    }
+  }
+}
+```
+
+Optional global install: copy the same server entry into `~/.cursor/mcp.json`, or enable the local plugin at `~/.cursor/plugins/local/30-agents/`.
+
+#### Exposed Tools
 
 | Tool | Maps to | Description |
 |------|---------|-------------|
 | `agent_chat` | `POST /api/chat` | General purpose agent orchestration |
+| `list_agents` | `GET /api/agents` | List registered specialists |
+| `list_squads` | `GET /api/squads` | List squad pipelines |
+| `run_squad` | `POST /api/squads/{name}/run` | Run a squad end-to-end |
 | `outreach_scrape` | `POST /api/outreach/scrape` | Lead discovery (step 1) |
 | `outreach_enrich` | `POST /api/outreach/enrich` | Email resolution (step 2) |
 | `outreach_generate` | `POST /api/outreach/generate` | Cold email generation (step 3) |
@@ -275,23 +299,23 @@ The bridge (`~/.config/opencode/mcp_bridge.py`) implements the Model Context Pro
 | `design_concept` | `POST /api/design/concept` | Design trend research + concept |
 | `health_check` | `GET /api/health` | System health status |
 
-#### Starting the MCP Bridge
+#### OpenCode / Claude Desktop
 
-The bridge is configured in `~/.config/opencode/opencode.jsonc` as a local MCP server:
+The same bridge script works with other MCP clients. Example OpenCode config:
 
 ```jsonc
 {
   "mcp": {
     "30agents": {
       "type": "local",
-      "command": ["python", "C:\\Users\\scott\\.config\\opencode\\mcp_bridge.py"],
+      "command": ["python3", "tools/mcp_bridge.py"],
       "enabled": true
     }
   }
 }
 ```
 
-No separate daemon is needed — the MCP client (opencode) spawns the bridge process automatically on startup.
+No separate daemon is needed — the MCP client spawns the bridge process automatically on startup.
 
 #### Prerequisites
 
