@@ -559,8 +559,9 @@ The `squad run` command calls the REST endpoint and displays results with rich f
 
 | File | Purpose |
 |------|---------|
-| `~/.config/opencode/mcp_bridge.py` | MCP stdio bridge — 11 tools mapped to REST endpoints |
-| `~/.config/opencode/opencode.jsonc` | opencode config — registers MCP server + LSP tooling |
+| `tools/mcp_bridge.py` | MCP stdio bridge — Cursor/OpenCode tools mapped to REST endpoints |
+| `.cursor/mcp.json` | Cursor project MCP config — registers `30agents` server |
+| `.cursor/rules/30-agents-mcp.mdc` | Cursor rule — when/how to use 30agents MCP tools |
 | `squads/__init__.py` | Exports all 6 squad configs + leaders |
 | `squads/base.py` | `SquadLeader`, `SquadConfig`, `SquadMember`, `RoutingRule` base classes |
 | `squads/registry.py` | `register_all_squads()` — registers leaders with agent graph |
