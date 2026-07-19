@@ -72,7 +72,14 @@ class AutopilotScheduler:
 
     async def start(self):
         self.redis = redis.from_url(settings.redis_url, decode_responses=True)
-        await self._load_and_register_jobs()
+        try:
+            await self.redis.ping()
+            await self._load_and_register_jobs()
+        except Exception as e:
+            logger.warning(
+                "AutopilotScheduler: Redis unavailable (%s); starting without loaded jobs",
+                e,
+            )
         self.scheduler.add_listener(self._job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
         self.scheduler.start()
         logger.info("AutopilotScheduler started")
