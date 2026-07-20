@@ -4,21 +4,17 @@
 
 ---
 
-## ⚡ Everyday use
+## ⚡ Everyday use (Windows)
 
-```bash
-./start                 # venv + Redis + API — ready in the background
-python main.py health   # check status
-python main.py chat "…" # run a task
-./start --status        # what's up?
-./start --stop          # shut API down
-```
+**Double-click `Start-Agents.bat`**
 
-New shells auto-load the project venv (`scripts/shell_init.sh`), so `python` is the right interpreter. Aliases: `agents-up`, `agents-status`, `agents-stop`, `agents-health`.
+That starts the system and opens the chat UI in your browser:
+**http://127.0.0.1:8000/** — type a task, hit Send.
 
-Cursor MCP (`30agents`) is in `.cursor/mcp.json` — run `./start`, then use the tools in chat.
+- `Stop-Agents.bat` — shut it down
+- `Create-Desktop-Shortcut.bat` — put a “30-Agents” icon on your Desktop (optional, once)
 
-Optional later: Discord webhook, outreach/invoicing `.env` keys, Ollama for full LLM quality, Multica Desktop restart.
+Mac/Linux: `./start` then open http://127.0.0.1:8000/
 
 ---
 
@@ -505,6 +501,9 @@ The `squad run` command calls the REST endpoint and displays results with rich f
 
 | File | Purpose |
 |------|---------|
+| `Start-Agents.bat` | Windows: double-click → start API + open chat UI |
+| `Stop-Agents.bat` | Windows: stop the API |
+| `Create-Desktop-Shortcut.bat` | Windows: Desktop shortcut for Start-Agents |
 | `start` | One-command ready: venv + Redis + API |
 | `scripts/shell_init.sh` | Puts venv on PATH; aliases `agents-up` / `agents-status` / … |
 | `tools/mcp_bridge.py` | MCP stdio bridge — Cursor/OpenCode tools mapped to REST endpoints |
