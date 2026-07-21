@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "30agents": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/venv/bin/python",
+      "args": ["${workspaceFolder}/tools/mcp_bridge.py"],
+      "env": {
+        "AGENTS30_API_BASE": "http://127.0.0.1:8000",
+        "AGENTS30_TIMEOUT": "180"
+      }
+    }
+  }
+}

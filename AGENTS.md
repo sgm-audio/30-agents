@@ -4,62 +4,20 @@
 
 ---
 
-## ⚠️ IMMEDIATE ACTION ITEMS (open this file, do not delegate)
+## ⚡ Everyday use (Windows)
 
-These are the only things blocking you from having a fully operational system. Everything else is code-complete.
+### Best experience
+1. Double-click **`Build-Exe.bat`** once (builds `dist\30-Agents.exe`)
+2. Double-click **`Create-Desktop-Shortcut.bat`** once
+3. Forever after: double-click **“30 Agents”** on your Desktop
 
-### 1. START DOCKER DESKTOP (unblocks everything Multica/Redis)
-```powershell
-# From Windows taskbar: click the Docker whale icon → wait for green light
-# Or run:
-& "C:\Program Files\Docker\Docker\Docker Desktop.exe"
-```
-Once Docker is running:
-```bash
-# Redis container auto-starts. Verify:
-docker ps --filter name=redis-agent
-```
+That opens a real app window (status + Start/Stop) and the chat UI at **http://127.0.0.1:8000/** — type what you want, or tap a starter.
 
-### 2. PROVIDE YOUR DISCORD WEBHOOK URL (unblocks all notifications)
-```powershell
-# In Discord: Server Settings → Integrations → Webhooks → New Webhook → Copy URL
-# Then run:
-python main.py autopilot setup-defaults --webhook "https://discord.com/api/webhooks/..."
-# Or via API:
-curl -X POST http://localhost:8000/api/webhook/discord -H "Content-Type: application/json" -d "{\"webhook_url\": \"https://discord.com/api/webhooks/...\", \"enabled\": true}"
-```
+No build yet? Double-click **`Start-Agents.bat`** — same GUI via Python.
 
-### 3. ADD API KEYS TO .env (unblocks outreach + invoicing)
-Add these to `C:\Users\scott\OneDrive\Desktop\30_agents\.env`:
-```env
-# Already configured: SERPER_API_KEY, TAVILY_API_KEY, FIRECRAWL_API_KEY, HUNTER_API_KEY, RESEND_API_KEY
-# Add for invoicing (optional):
-STRIPE_API_KEY=sk_test_...
-ZOHO_ORG_ID=...
-ZOHO_API_TOKEN=...
-OUTREACH_EMAIL_FROM=scott@sgmstudios.ca
-OUTREACH_DOMAIN=sgmstudios.ca
-```
+- `Stop-Agents.bat` — shut the API down
 
-### 4. RESTART MULTICA DESKTOP (picks up localhost config)
-```
-Config already written to ~/.multica/desktop.json
-Just close and reopen Multica Desktop app.
-```
-
-### 5. START THE 30-AGENT SERVER
-```bash
-cd C:\Users\scott\OneDrive\Desktop\30_agents
-python main.py serve --reload
-# Available at http://localhost:8000
-```
-
-**Quick health check after everything is up:**
-```bash
-python main.py health                           # verify Ollama + Redis + ChromaDB
-python main.py autopilot setup-defaults          # create daily/weekly/monthly autopilots
-curl http://localhost:8000/api/health            # JSON health response
-```
+Mac/Linux: `./start` then open http://127.0.0.1:8000/
 
 ---
 
@@ -67,37 +25,24 @@ curl http://localhost:8000/api/health            # JSON health response
 
 Local, fully self-hosted 30-agent AI orchestration system. LangGraph + FastAPI + Ollama (no cloud API keys). Exposed as REST/WebSocket API at `http://localhost:8000` and a Typer CLI (`main.py`).
 
-## Prerequisites before anything works
+## Prerequisites
 
-Three services must be running:
-1. **Ollama** — `systemctl --user start ollama` (AMD GPU: needs `OLLAMA_VULKAN=1`, `HSA_OVERRIDE_GFX_VERSION=11.5.0` from `.env`/`run.sh`)
-2. **Redis** — Podman container named `redis-agent` on port 6379. `run.sh` starts or creates it automatically.
-3. **ChromaDB** — embedded, no service; auto-persists to `data/chroma/`
+`./start` brings up Redis + the API. For full agent LLM calls you also want:
+1. **Ollama** — local models (without it, health shows `degraded` / `ollama:false` but the API still runs)
+2. **Redis** — started automatically by `./start` / `./run.sh` (system `redis-server`, Docker, or Podman)
+3. **ChromaDB** — embedded; auto-persists to `data/chroma/`
 
 ## Developer commands
 
 ```bash
-# First-time setup (creates venv, installs deps, configures services)
-python scripts/setup.py
-./venv/bin/python scripts/pull_models.py   # or: python main.py pull-models
+./start                         # recommended everyday entrypoint
+./run.sh                        # tmux session 'agents30'
+./run.sh --no-tmux              # foreground server
 
-# Activate venv
-source venv/bin/activate
-
-# Start (production — tmux session 'agents30')
-./run.sh
-tmux attach -t agents30   # re-attach
-
-# Start (simple, no tmux)
-./run.sh --no-tmux
-# or:
-python main.py serve
-python main.py serve --reload   # hot-reload for development
-
-# CLI shortcuts
 python main.py health           # check Ollama + Redis + ChromaDB
-python main.py agents           # list all 30 agents
+python main.py agents           # list all agents
 python main.py chat "your task" # one-shot task
+python main.py serve --reload   # hot-reload for development
 
 # Install/sync deps (no lockfile — requirements.txt uses >= pins)
 pip install -r requirements.txt
@@ -257,13 +202,37 @@ Multica connects an MCP-compatible client (e.g. opencode, Claude Desktop) to the
 
 ### MCP Bridge — Expose 30 Agents as MCP Tools
 
-The bridge (`~/.config/opencode/mcp_bridge.py`) implements the Model Context Protocol over stdio. It proxies MCP `tools/list` and `tools/call` requests to the 30-agent REST API (`localhost:8000`).
+The in-repo bridge (`tools/mcp_bridge.py`) implements the Model Context Protocol over stdio. It proxies MCP `tools/list` and `tools/call` requests to the 30-agent REST API (`localhost:8000`).
 
-#### Exposed Tools (11 total)
+#### Cursor wiring (primary)
+
+Project MCP config is committed at `.cursor/mcp.json`. Open this repo in Cursor, start the API (`python main.py serve`), then verify **Settings → MCP** shows `30agents` connected.
+
+```json
+{
+  "mcpServers": {
+    "30agents": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["${workspaceFolder}/tools/mcp_bridge.py"],
+      "env": {
+        "AGENTS30_API_BASE": "http://127.0.0.1:8000"
+      }
+    }
+  }
+}
+```
+
+Optional global install: copy the same server entry into `~/.cursor/mcp.json`, or enable the local plugin at `~/.cursor/plugins/local/30-agents/`.
+
+#### Exposed Tools
 
 | Tool | Maps to | Description |
 |------|---------|-------------|
 | `agent_chat` | `POST /api/chat` | General purpose agent orchestration |
+| `list_agents` | `GET /api/agents` | List registered specialists |
+| `list_squads` | `GET /api/squads` | List squad pipelines |
+| `run_squad` | `POST /api/squads/{name}/run` | Run a squad end-to-end |
 | `outreach_scrape` | `POST /api/outreach/scrape` | Lead discovery (step 1) |
 | `outreach_enrich` | `POST /api/outreach/enrich` | Email resolution (step 2) |
 | `outreach_generate` | `POST /api/outreach/generate` | Cold email generation (step 3) |
@@ -275,23 +244,23 @@ The bridge (`~/.config/opencode/mcp_bridge.py`) implements the Model Context Pro
 | `design_concept` | `POST /api/design/concept` | Design trend research + concept |
 | `health_check` | `GET /api/health` | System health status |
 
-#### Starting the MCP Bridge
+#### OpenCode / Claude Desktop
 
-The bridge is configured in `~/.config/opencode/opencode.jsonc` as a local MCP server:
+The same bridge script works with other MCP clients. Example OpenCode config:
 
 ```jsonc
 {
   "mcp": {
     "30agents": {
       "type": "local",
-      "command": ["python", "C:\\Users\\scott\\.config\\opencode\\mcp_bridge.py"],
+      "command": ["python3", "tools/mcp_bridge.py"],
       "enabled": true
     }
   }
 }
 ```
 
-No separate daemon is needed — the MCP client (opencode) spawns the bridge process automatically on startup.
+No separate daemon is needed — the MCP client spawns the bridge process automatically on startup.
 
 #### Prerequisites
 
@@ -535,8 +504,18 @@ The `squad run` command calls the REST endpoint and displays results with rich f
 
 | File | Purpose |
 |------|---------|
-| `~/.config/opencode/mcp_bridge.py` | MCP stdio bridge — 11 tools mapped to REST endpoints |
-| `~/.config/opencode/opencode.jsonc` | opencode config — registers MCP server + LSP tooling |
+| `dist/30-Agents.exe` | Windows app (build with `Build-Exe.bat`) |
+| `launcher/app.py` | Desktop GUI launcher (Start / Stop / Open Chat) |
+| `Build-Exe.bat` | Build one-file `30-Agents.exe` with PyInstaller |
+| `Start-Agents.bat` | Windows: launches GUI (or exe if built) |
+| `api/ui/index.html` | Chat front door in the browser |
+| `Stop-Agents.bat` | Windows: stop the API |
+| `Create-Desktop-Shortcut.bat` | Windows: Desktop shortcut for Start-Agents |
+| `start` | One-command ready: venv + Redis + API |
+| `scripts/shell_init.sh` | Puts venv on PATH; aliases `agents-up` / `agents-status` / … |
+| `tools/mcp_bridge.py` | MCP stdio bridge — Cursor/OpenCode tools mapped to REST endpoints |
+| `.cursor/mcp.json` | Cursor project MCP config — registers `30agents` server |
+| `.cursor/rules/30-agents-mcp.mdc` | Cursor rule — when/how to use 30agents MCP tools |
 | `squads/__init__.py` | Exports all 6 squad configs + leaders |
 | `squads/base.py` | `SquadLeader`, `SquadConfig`, `SquadMember`, `RoutingRule` base classes |
 | `squads/registry.py` | `register_all_squads()` — registers leaders with agent graph |

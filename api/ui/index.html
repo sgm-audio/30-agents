@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>30 Agents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg0: #0b100e;
+    --bg1: #121a16;
+    --ink: #e7eee8;
+    --muted: #8f9f94;
+    --line: #24312a;
+    --accent: #d4a574;
+    --accent-2: #7ec8a3;
+    --danger: #e85d5d;
+    --warn: #e6b84d;
+    --user: #1e3a2f;
+    --bot: #151e19;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Figtree", system-ui, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(1200px 600px at 10% -10%, #1a2a22 0%, transparent 55%),
+      radial-gradient(900px 500px at 100% 0%, #2a2218 0%, transparent 50%),
+      var(--bg0);
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.1rem 1.5rem;
+    border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--bg1) 85%, transparent);
+    backdrop-filter: blur(10px);
+  }
+  .brand {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 700;
+    font-size: 1.55rem;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .brand span { color: var(--ink); font-weight: 600; }
+  .health {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+  .pill {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--bg1);
+    color: var(--muted);
+  }
+  .pill.on { color: var(--accent-2); border-color: color-mix(in srgb, var(--accent-2) 40%, var(--line)); }
+  .pill.off { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); }
+  .pill.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
+
+  main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+  @media (min-width: 960px) {
+    main { grid-template-columns: 280px minmax(0, 1fr); }
+  }
+
+  aside {
+    display: none;
+    border-right: 1px solid var(--line);
+    background: color-mix(in srgb, var(--bg1) 70%, transparent);
+    padding: 1.25rem;
+    overflow: auto;
+  }
+  @media (min-width: 960px) { aside { display: block; } }
+  aside h2 {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+  .action {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    border-radius: 10px;
+    padding: 0.85rem 0.95rem;
+    margin-bottom: 0.55rem;
+    cursor: pointer;
+    font: inherit;
+    transition: border-color 0.15s, background 0.15s, transform 0.15s;
+  }
+  .action:hover {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    transform: translateY(-1px);
+  }
+  .action strong { display: block; font-size: 0.92rem; margin-bottom: 0.2rem; }
+  .action small { color: var(--muted); font-size: 0.78rem; line-height: 1.35; }
+
+  .chat {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  #messages {
+    flex: 1;
+    overflow: auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+  .msg {
+    max-width: min(720px, 92%);
+    padding: 0.95rem 1.1rem;
+    border-radius: 14px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    font-size: 0.95rem;
+    animation: rise 0.28s ease both;
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+  .msg.user {
+    align-self: flex-end;
+    background: var(--user);
+    border: 1px solid color-mix(in srgb, var(--accent-2) 25%, var(--line));
+  }
+  .msg.assistant {
+    align-self: flex-start;
+    background: var(--bot);
+    border: 1px solid var(--line);
+  }
+  .msg.system {
+    align-self: center;
+    color: var(--muted);
+    background: transparent;
+    border: 0;
+    font-size: 0.85rem;
+    text-align: center;
+  }
+  .welcome {
+    max-width: 640px;
+    margin: 8vh auto 0;
+    text-align: center;
+    animation: rise 0.4s ease both;
+  }
+  .welcome h1 {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    letter-spacing: -0.03em;
+    color: var(--accent);
+    margin-bottom: 0.6rem;
+  }
+  .welcome p {
+    color: var(--muted);
+    font-size: 1.05rem;
+    max-width: 36ch;
+    margin: 0 auto 1.4rem;
+  }
+  .starters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+  .starter {
+    border: 1px solid var(--line);
+    background: var(--bg1);
+    color: var(--ink);
+    border-radius: 999px;
+    padding: 0.55rem 0.95rem;
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .starter:hover { border-color: var(--accent); color: var(--accent); }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 0.9rem 1.1rem 1.1rem;
+    background: color-mix(in srgb, var(--bg1) 90%, transparent);
+  }
+  .composer {
+    display: flex;
+    gap: 0.65rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  #task-input {
+    flex: 1;
+    resize: none;
+    min-height: 52px;
+    max-height: 160px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--bg0);
+    color: var(--ink);
+    padding: 0.9rem 1rem;
+    font: inherit;
+    font-size: 1rem;
+  }
+  #task-input:focus { outline: none; border-color: var(--accent); }
+  #send-btn {
+    border: 0;
+    border-radius: 14px;
+    padding: 0 1.25rem;
+    background: var(--accent);
+    color: #0b100e;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    min-width: 96px;
+  }
+  #send-btn:hover { filter: brightness(1.06); }
+  #send-btn:disabled { opacity: 0.45; cursor: default; filter: none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">30 <span>Agents</span></div>
+  <div class="health" id="health">
+    <span class="pill" id="pill-api">API…</span>
+    <span class="pill" id="pill-redis">Redis…</span>
+    <span class="pill" id="pill-ollama">Ollama…</span>
+  </div>
+</header>
+
+<main>
+  <aside>
+    <h2>Do this</h2>
+    <button class="action" data-task="Find 20 Vancouver restaurants that don't have a website yet">
+      <strong>Find leads</strong>
+      <small>Local businesses without websites</small>
+    </button>
+    <button class="action" data-task="Run an SEO audit on https://example.com and summarize the top fixes">
+      <strong>SEO audit</strong>
+      <small>On-page, technical, content</small>
+    </button>
+    <button class="action" data-task="Write a short cold email offering a modern website redesign to a local cafe">
+      <strong>Write outreach</strong>
+      <small>Personalized cold email draft</small>
+    </button>
+    <button class="action" data-task="Review this project structure and suggest the highest-impact next improvement">
+      <strong>Improve this repo</strong>
+      <small>Code + architecture advice</small>
+    </button>
+  </aside>
+
+  <section class="chat">
+    <div id="messages">
+      <div class="welcome" id="welcome">
+        <h1>30 Agents</h1>
+        <p>Tell them what you need. Outreach, SEO, writing, code — one place.</p>
+        <div class="starters">
+          <button class="starter" data-task="Summarize what this system can do for my local business in 5 bullets">What can you do?</button>
+          <button class="starter" data-task="Find Vancouver plumbers without websites">Find leads</button>
+          <button class="starter" data-task="Draft a redesign pitch email for a dental clinic">Draft an email</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="composer">
+    <textarea id="task-input" placeholder="Ask for leads, an SEO audit, an email, code help…" rows="1"></textarea>
+    <button id="send-btn">Send</button>
+  </div>
+</footer>
+
+<script>
+const sessionId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+let ws;
+let busy = false;
+
+function setPill(id, ok, label, warn=false) {
+  const el = document.getElementById(id);
+  el.textContent = label;
+  el.className = 'pill ' + (warn ? 'warn' : ok ? 'on' : 'off');
+}
+
+async function refreshHealth() {
+  try {
+    const data = await fetch('/api/health').then(r => r.json());
+    setPill('pill-api', true, 'API · online');
+    setPill('pill-redis', !!data.redis, data.redis ? 'Redis · ok' : 'Redis · down');
+    setPill('pill-ollama', !!data.ollama, data.ollama ? 'Ollama · ok' : 'Ollama · offline', !data.ollama);
+  } catch {
+    setPill('pill-api', false, 'API · offline');
+    setPill('pill-redis', false, 'Redis · ?');
+    setPill('pill-ollama', false, 'Ollama · ?');
+  }
+}
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws/${sessionId}`);
+  ws.onopen = () => refreshHealth();
+  ws.onclose = () => setTimeout(connect, 2500);
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'result') {
+      // remove trailing processing marker
+      const nodes = [...document.querySelectorAll('.msg.system')];
+      const last = nodes[nodes.length - 1];
+      if (last && last.dataset.temp === '1') last.remove();
+      addMsg(data.result || '(empty response)', 'assistant');
+      setBusy(false);
+    } else if (data.type === 'error') {
+      addMsg(data.error || 'Something went wrong', 'system');
+      setBusy(false);
+    }
+  };
+}
+
+function hideWelcome() {
+  const w = document.getElementById('welcome');
+  if (w) w.remove();
+}
+
+function addMsg(text, type) {
+  hideWelcome();
+  const div = document.createElement('div');
+  div.className = `msg ${type}`;
+  div.textContent = text;
+  const box = document.getElementById('messages');
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div;
+}
+
+function setBusy(v) {
+  busy = v;
+  document.getElementById('send-btn').disabled = v;
+}
+
+function sendTask(task) {
+  task = (task || '').trim();
+  if (!task || busy) return;
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    addMsg('Not connected yet — retrying…', 'system');
+    connect();
+    return;
+  }
+  addMsg(task, 'user');
+  const tip = addMsg('Working on it…', 'system');
+  tip.dataset.temp = '1';
+  setBusy(true);
+  ws.send(JSON.stringify({ task }));
+  document.getElementById('task-input').value = '';
+}
+
+document.getElementById('send-btn').addEventListener('click', () => {
+  sendTask(document.getElementById('task-input').value);
+});
+document.getElementById('task-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendTask(document.getElementById('task-input').value);
+  }
+});
+document.querySelectorAll('[data-task]').forEach(btn => {
+  btn.addEventListener('click', () => sendTask(btn.dataset.task));
+});
+
+refreshHealth();
+setInterval(refreshHealth, 8000);
+connect();
+</script>
+</body>
+</html>
