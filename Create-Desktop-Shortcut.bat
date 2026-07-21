@@ -1,22 +1,17 @@
 @echo off
-REM Double-click helper: creates a Desktop shortcut to Start-Agents.bat
-setlocal
+setlocal EnableExtensions
 cd /d "%~dp0"
 
-set "TARGET=%~dp0Start-Agents.bat"
 set "DESKTOP=%USERPROFILE%\Desktop"
-set "LINK=%DESKTOP%\30-Agents.lnk"
+set "LINK=%DESKTOP%\30 Agents.lnk"
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$ws = New-Object -ComObject WScript.Shell; ^
-   $sc = $ws.CreateShortcut('%LINK%'); ^
-   $sc.TargetPath = '%TARGET%'; ^
-   $sc.WorkingDirectory = '%~dp0'; ^
-   $sc.WindowStyle = 1; ^
-   $sc.Description = 'Start 30-Agent System and open chat UI'; ^
-   $sc.Save(); ^
-   Write-Host 'Shortcut created:' '%LINK%'"
+if exist "%~dp0dist\30-Agents.exe" (
+  powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$ws=New-Object -ComObject WScript.Shell; $sc=$ws.CreateShortcut('%LINK%'); $sc.TargetPath='%~dp0dist\30-Agents.exe'; $sc.Arguments='--start --open'; $sc.WorkingDirectory='%~dp0'; $sc.Description='30 Agents'; $sc.Save(); Write-Host 'Created %LINK% (exe)'"
+) else (
+  powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$ws=New-Object -ComObject WScript.Shell; $sc=$ws.CreateShortcut('%LINK%'); $sc.TargetPath='%~dp0Start-Agents.bat'; $sc.WorkingDirectory='%~dp0'; $sc.Description='30 Agents'; $sc.Save(); Write-Host 'Created %LINK% (bat). Run Build-Exe.bat for a real .exe.'"
+)
 
 echo.
-echo Double-click "30-Agents" on your Desktop next time.
 pause

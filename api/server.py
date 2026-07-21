@@ -12,6 +12,7 @@ import json
 import time
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Optional
 
 import structlog
@@ -1519,126 +1520,12 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
 # ──────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return HTMLResponse(content=_get_ui_html())
+    ui_path = Path(__file__).parent / "ui" / "index.html"
+    return HTMLResponse(content=ui_path.read_text(encoding="utf-8"))
 
 
+# Keep legacy helper name for any imports/tests; prefer file-backed UI.
 def _get_ui_html() -> str:
-    return """<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>30-Agent Cognitive System</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; height: 100vh; display: flex; flex-direction: column; }
-  header { background: #161b22; padding: 16px 24px; border-bottom: 1px solid #30363d; display: flex; align-items: center; gap: 12px; }
-  header h1 { font-size: 1.2rem; color: #58a6ff; }
-  #status { font-size: 0.8rem; color: #8b949e; }
-  .container { display: flex; flex: 1; overflow: hidden; }
-  #sidebar { width: 260px; background: #161b22; border-right: 1px solid #30363d; overflow-y: auto; padding: 12px; }
-  #sidebar h2 { font-size: 0.85rem; color: #8b949e; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
-  .agent-chip { background: #21262d; border: 1px solid #30363d; border-radius: 4px; padding: 6px 10px; margin-bottom: 4px; font-size: 0.78rem; cursor: pointer; transition: background 0.15s; }
-  .agent-chip:hover { background: #30363d; }
-  .tier-label { font-size: 0.7rem; color: #58a6ff; margin: 10px 0 4px; }
-  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-  #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
-  .msg { max-width: 80%; padding: 12px 16px; border-radius: 8px; line-height: 1.5; white-space: pre-wrap; font-size: 0.9rem; }
-  .msg.user { background: #1f6feb; align-self: flex-end; }
-  .msg.assistant { background: #21262d; border: 1px solid #30363d; align-self: flex-start; }
-  .msg.system { background: #161b22; border: 1px solid #30363d; align-self: center; color: #8b949e; font-size: 0.8rem; }
-  #input-area { padding: 16px 20px; background: #161b22; border-top: 1px solid #30363d; display: flex; gap: 10px; }
-  #task-input { flex: 1; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; border-radius: 6px; padding: 10px 14px; font-size: 0.95rem; resize: none; min-height: 44px; max-height: 200px; }
-  #task-input:focus { outline: none; border-color: #58a6ff; }
-  #send-btn { background: #238636; color: #fff; border: none; border-radius: 6px; padding: 0 20px; cursor: pointer; font-size: 0.9rem; font-weight: 600; }
-  #send-btn:hover { background: #2ea043; }
-  #send-btn:disabled { background: #21262d; color: #8b949e; cursor: default; }
-  code { background: #0d1117; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
-</style>
-</head>
-<body>
-<header>
-  <h1>🧠 30-Agent Cognitive System</h1>
-  <span id="status">Connecting...</span>
-</header>
-<div class="container">
-  <div id="sidebar">
-    <h2>Agents</h2>
-    <div id="agent-list">Loading...</div>
-  </div>
-  <div id="main">
-    <div id="messages">
-      <div class="msg system">System ready. Send a task to get started.</div>
-    </div>
-    <div id="input-area">
-      <textarea id="task-input" placeholder="Enter your task..." rows="1"></textarea>
-      <button id="send-btn">Send</button>
-    </div>
-  </div>
-</div>
-<script>
-const sessionId = Math.random().toString(36).slice(2);
-let ws;
+    ui_path = Path(__file__).parent / "ui" / "index.html"
+    return ui_path.read_text(encoding="utf-8")
 
-function connect() {
-  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/${sessionId}`);
-  ws.onopen = () => { document.getElementById('status').textContent = '● Connected'; };
-  ws.onclose = () => { document.getElementById('status').textContent = '○ Disconnected'; setTimeout(connect, 3000); };
-  ws.onmessage = (e) => {
-    const data = JSON.parse(e.data);
-    if (data.type === 'result') {
-      addMsg(data.result, 'assistant');
-      document.getElementById('send-btn').disabled = false;
-    }
-  };
-}
-
-function addMsg(text, type) {
-  const div = document.createElement('div');
-  div.className = `msg ${type}`;
-  div.textContent = text;
-  const container = document.getElementById('messages');
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-}
-
-document.getElementById('send-btn').addEventListener('click', () => {
-  const input = document.getElementById('task-input');
-  const task = input.value.trim();
-  if (!task || !ws) return;
-  addMsg(task, 'user');
-  ws.send(JSON.stringify({ task }));
-  input.value = '';
-  document.getElementById('send-btn').disabled = true;
-  addMsg('⏳ Processing...', 'system');
-});
-
-document.getElementById('task-input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('send-btn').click(); }
-});
-
-// Load agents
-fetch('/api/agents').then(r => r.json()).then(data => {
-  const tiers = {};
-  data.agents.forEach(a => {
-    if (!tiers[a.tier]) tiers[a.tier] = [];
-    tiers[a.tier].push(a);
-  });
-  const tierNames = {1:'Core Infrastructure',2:'Research & Knowledge',3:'Code & Engineering',4:'Content & Creative',5:'Reasoning & Analysis',6:'Multimodal'};
-  const html = Object.entries(tiers).map(([t, agents]) =>
-    `<div class="tier-label">Tier ${t}: ${tierNames[t]||''}</div>` +
-    agents.map(a => `<div class="agent-chip" title="${a.description}">🤖 ${a.name}</div>`).join('')
-  ).join('');
-  document.getElementById('agent-list').innerHTML = html;
-});
-
-// Health check
-fetch('/api/health').then(r => r.json()).then(data => {
-  document.getElementById('status').textContent = 
-    `● Ollama: ${data.ollama ? 'OK' : 'DOWN'} | Redis: ${data.redis ? 'OK' : 'DOWN'} | Models: ${data.models.length}`;
-});
-
-connect();
-</script>
-</body>
-</html>"""

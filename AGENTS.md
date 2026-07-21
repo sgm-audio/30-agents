@@ -6,13 +6,16 @@
 
 ## ⚡ Everyday use (Windows)
 
-**Double-click `Start-Agents.bat`**
+### Best experience
+1. Double-click **`Build-Exe.bat`** once (builds `dist\30-Agents.exe`)
+2. Double-click **`Create-Desktop-Shortcut.bat`** once
+3. Forever after: double-click **“30 Agents”** on your Desktop
 
-That starts the system and opens the chat UI in your browser:
-**http://127.0.0.1:8000/** — type a task, hit Send.
+That opens a real app window (status + Start/Stop) and the chat UI at **http://127.0.0.1:8000/** — type what you want, or tap a starter.
 
-- `Stop-Agents.bat` — shut it down
-- `Create-Desktop-Shortcut.bat` — put a “30-Agents” icon on your Desktop (optional, once)
+No build yet? Double-click **`Start-Agents.bat`** — same GUI via Python.
+
+- `Stop-Agents.bat` — shut the API down
 
 Mac/Linux: `./start` then open http://127.0.0.1:8000/
 
@@ -501,7 +504,11 @@ The `squad run` command calls the REST endpoint and displays results with rich f
 
 | File | Purpose |
 |------|---------|
-| `Start-Agents.bat` | Windows: double-click → start API + open chat UI |
+| `dist/30-Agents.exe` | Windows app (build with `Build-Exe.bat`) |
+| `launcher/app.py` | Desktop GUI launcher (Start / Stop / Open Chat) |
+| `Build-Exe.bat` | Build one-file `30-Agents.exe` with PyInstaller |
+| `Start-Agents.bat` | Windows: launches GUI (or exe if built) |
+| `api/ui/index.html` | Chat front door in the browser |
 | `Stop-Agents.bat` | Windows: stop the API |
 | `Create-Desktop-Shortcut.bat` | Windows: Desktop shortcut for Start-Agents |
 | `start` | One-command ready: venv + Redis + API |
