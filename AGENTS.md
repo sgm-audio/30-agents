@@ -4,6 +4,54 @@
 
 ---
 
+## Cursor Cloud specific instructions
+
+This section is for future cloud agents. The update script already refreshes the Python
+venv + deps (`requirements.txt`). Standard dev/test/run commands live above and in `run.sh`
+/ `start`; only the non-obvious caveats are captured here.
+
+### Starting services (deps are already installed)
+- **Redis** is required and is installed system-wide via `apt` (not pip). Start it with
+  `redis-server --daemonize yes --port 6379` (systemd is not running in the VM, so
+  `service`/`systemctl` won't work). `./start` also starts it if `redis-server` is present.
+- **API server:** `venv/bin/python main.py serve` (binds `0.0.0.0:8000`). On boot it waits up
+  to 30s for Ollama, then continues in `degraded` mode. Serve it in a tmux session, not a
+  one-shot background process.
+- Health: `curl -s localhost:8000/api/health`. `status:"ok"` needs Ollama; `status:"degraded"`
+  (with `redis:true`) is normal when Ollama is not running — the REST API + memory embeddings
+  path still require Ollama, so start it if you need real inference.
+
+### Real LLM inference on the CPU-only VM (Ollama)
+Ollama is **not** installed by the update script (heavy, optional). To exercise real agent
+inference in the cloud VM:
+1. Install Ollama (`curl -fsSL https://ollama.com/install.sh | sudo sh`; needs `zstd`).
+2. **Run it on port 11435** (the config default, NOT Ollama's default 11434):
+   `OLLAMA_HOST=127.0.0.1:11435 ollama serve`.
+3. **Critical gotcha:** Ollama auto-selects an AVX512 CPU backend
+   (`libggml-cpu-sapphirerapids.so`, `skylakex`, etc.) that **segfaults** in this VM. Move all
+   AVX512 variants out of `/usr/local/lib/ollama/` (sapphirerapids, cooperlake, cascadelake,
+   icelake, cannonlake, zen4, skylakex) so it falls back to the AVX2 (`haswell`/`alderlake`)
+   backend, then restart `ollama serve`. Embeddings (`nomic-embed-text`) work either way, but
+   text **generation** crashes until this is done.
+4. The default models in `core/config.py` are large GPU GGUFs. Create a `.env` (gitignored)
+   pointing `MODEL_FAST`/`MODEL_REASON` at a small CPU model, e.g. `llama3.2:1b`, keep
+   `MODEL_EMBED=nomic-embed-text`, and set `OLLAMA_HOST=http://127.0.0.1:11435`. Restart the
+   server after editing `.env` (it is read once at import; no hot reload for config).
+
+### Behavior notes (not bugs to "fix")
+- `/api/chat` → the orchestrator implements **memory store/retrieve**, not LLM routing (the
+  routing code after the early `return` is unreachable). Tasks containing
+  store/save/remember/memorize are stored in ChromaDB; anything else does a semantic search.
+- The squad REST endpoint (`POST /api/squads/{name}/run`) invokes the squad leader once and
+  does not drive the full LangGraph loop, so it returns `"No result produced"` /
+  `members_called: []`. Pre-existing.
+- `tests/test_agents.py::test_all_30_agents_can_be_imported` is a stale assertion (expects 31,
+  repo now has 39 agents) — pre-existing failure, unrelated to environment.
+- `pytest.ini` sets `timeout=30` but `pytest-timeout` isn't installed → harmless
+  "Unknown config option: timeout" warning.
+
+---
+
 ## ⚡ Everyday use (Windows)
 
 ### Best experience
