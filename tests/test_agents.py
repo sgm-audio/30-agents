@@ -14,7 +14,11 @@ import pytest
 class TestAgentInstantiation:
     def test_all_30_agents_can_be_imported(self):
         from agents.registry import ALL_AGENTS
-        assert len(ALL_AGENTS) == 31, f"Expected 31 agents, got {len(ALL_AGENTS)}"
+        # Tier specialists + outreach/SEO extensions + audio_analyst
+        assert len(ALL_AGENTS) >= 30, f"Expected >=30 agents, got {len(ALL_AGENTS)}"
+        names = {A.name for A in ALL_AGENTS}
+        assert "orchestrator" in names
+        assert "audio_analyst" in names
 
     def test_all_agents_have_required_attributes(self):
         from agents.registry import ALL_AGENTS

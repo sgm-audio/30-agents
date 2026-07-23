@@ -10,6 +10,7 @@ Members:
   - embedding: Generates embeddings for semantic search and similarity
   - multimodal: Synthesizes information across text, image, audio modalities
   - media_coordinator: Coordinates media processing and format conversions
+  - audio_analyst: Reasons about DSP/audio engineering tasks (no audio decoding libs)
 
 Routing Logic:
   vision_analyst → embedding_engine → multimodal_synthesizer → media_coordinator → END
@@ -19,7 +20,13 @@ from typing import Any
 
 import structlog
 
-from agents.tier6 import VisionAnalystAgent, EmbeddingEngineAgent, MultimodalSynthesizerAgent, MediaCoordinatorAgent
+from agents.tier6 import (
+    VisionAnalystAgent,
+    EmbeddingEngineAgent,
+    MultimodalSynthesizerAgent,
+    MediaCoordinatorAgent,
+    AudioAnalystAgent,
+)
 from core.config import settings
 from core.graph import AgentState
 
@@ -57,6 +64,13 @@ VISION_MEMBERS = [
         keywords=["media", "convert", "format", "audio", "video", "transcode", "process"],
         model=settings.model_fast,
     ),
+    SquadMember(
+        name="audio_analyst",
+        agent_class=AudioAnalystAgent,
+        description="Reasons about DSP/audio engineering tasks and audio file metadata",
+        keywords=["dsp", "mixing", "mastering", "vst", "clap", "plugin design", "reaper", "audio engineering"],
+        model=settings.model_fast,
+    ),
 ]
 
 
@@ -80,6 +94,11 @@ VISION_ROUTING = [
         keywords=["media", "convert", "format", "audio", "video", "transcode"],
         member_name="media_coordinator",
         priority=6,
+    ),
+    RoutingRule(
+        keywords=["dsp", "mixing", "mastering", "vst", "clap", "plugin design", "reaper", "audio engineering"],
+        member_name="audio_analyst",
+        priority=8,
     ),
 ]
 
@@ -128,6 +147,9 @@ Or direct routing based on task type."""
         """Route to most relevant member based on task keywords."""
         task_lower = task.lower()
 
+        if any(kw in task_lower for kw in ["dsp", "mixing", "mastering", "vst", "clap", "plugin design", "reaper", "audio engineering"]):
+            return "audio_analyst"
+
         if any(kw in task_lower for kw in ["embed", "embedding", "vector", "semantic", "similarity"]):
             return "embedding_engine"
 
@@ -146,7 +168,7 @@ Or direct routing based on task type."""
         """Complete after media_coordinator runs."""
         return last_member == "media_coordinator"
 
-    def get_next_member(self, last_member: str, context: dict) -> str | None:
+    def get_next_member(self, last_member: str, member_result: dict, context: dict) -> str | None:
         """Route sequentially through the pipeline."""
         try:
             idx = self.WORKFLOW_ORDER.index(last_member)

@@ -285,6 +285,22 @@ async def get_history(session_id: str, limit: int = 20):
 
 
 # ══════════════════════════════════════════════════════════════
+# Feedback / Self-Improvement Endpoints
+# ══════════════════════════════════════════════════════════════
+class CorrectionRequest(BaseModel):
+    task: str
+    wrong: str
+    right: str
+    agent: str = ""
+
+
+@app.post("/api/feedback/correction")
+async def log_feedback_correction(req: CorrectionRequest):
+    from core.self_improve import log_correction
+    return log_correction(req.task, req.wrong, req.right, req.agent)
+
+
+# ══════════════════════════════════════════════════════════════
 # Outreach Endpoints
 # ══════════════════════════════════════════════════════════════
 from pydantic import BaseModel

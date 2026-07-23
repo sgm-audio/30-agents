@@ -45,6 +45,7 @@ from agents.tier6 import (
     EmbeddingEngineAgent,
     MultimodalSynthesizerAgent,
     MediaCoordinatorAgent,
+    AudioAnalystAgent,
 )
 from agents.tier2_outreach import LeadScoutAgent, EmailFinderAgent
 from agents.tier4_outreach import OutreachWriterAgent
@@ -110,6 +111,7 @@ ALL_AGENTS = [
     EmbeddingEngineAgent,
     MultimodalSynthesizerAgent,
     MediaCoordinatorAgent,
+    AudioAnalystAgent,
 ]
 
 

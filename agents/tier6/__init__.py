@@ -24,6 +24,7 @@ __all__ = [
     "EmbeddingEngineAgent",
     "MultimodalSynthesizerAgent",
     "MediaCoordinatorAgent",
+    "AudioAnalystAgent",
 ]
 
 
@@ -282,4 +283,55 @@ Return JSON: {"media_type": "...", "next_agent": "...", "pipeline": [...]}"""
         return {
             "context": new_context,
             "next_agent": next_agent,
+        }
+
+
+# ══════════════════════════════════════════════════════════════
+# Agent (Audio): Audio Analyst
+# ══════════════════════════════════════════════════════════════
+class AudioAnalystAgent(BaseAgent):
+    """
+    Reasons about audio/DSP engineering tasks. No heavy audio libraries are
+    used — if an audio file path is given, only lightweight filesystem
+    metadata (size, extension) is inspected via pathlib; the LLM reasons
+    about the engineering task itself (mixing, mastering, plugin design,
+    DSP algorithms, etc.).
+    """
+
+    name = "audio_analyst"
+    description = "Analyzes audio file metadata and reasons about DSP/audio engineering tasks"
+    model = settings.model_fast
+    system_prompt = """You are an audio engineering and DSP expert. You reason about:
+1. Mixing, mastering, and audio production workflows
+2. DSP algorithms (filters, dynamics, reverb, EQ, compression)
+3. Plugin architecture (VST3/CLAP/AU) and real-time audio constraints
+4. Audio file formats, sample rates, bit depths, and codecs
+5. REAPER/DAW scripting and session organization
+
+You do not have access to audio decoding or signal-analysis libraries —
+reason from the task description and any file metadata provided."""
+
+    async def execute(self, state: AgentState) -> dict[str, Any]:
+        task = state["task"]
+        context = state.get("context", {})
+
+        audio_path = context.get("audio_path", "") or context.get("file_path", "")
+        file_info = ""
+        if audio_path:
+            p = Path(audio_path)
+            if p.exists() and p.is_file():
+                size_kb = p.stat().st_size / 1024
+                file_info = f"\n\nAudio file: {p.name} ({p.suffix or 'no extension'}, {size_kb:.1f} KB)"
+            else:
+                file_info = f"\n\nNote: audio file not found at {audio_path} (reasoning from task description only)."
+
+        analysis = await self.llm(f"{task}{file_info}")
+
+        new_context = dict(context)
+        new_context["audio_analysis"] = analysis
+
+        return {
+            "context": new_context,
+            "result": analysis,
+            "next_agent": "END",
         }

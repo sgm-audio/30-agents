@@ -531,5 +531,40 @@ def outreach(
     asyncio.run(_run())
 
 
+# ──────────────────────────────────────────────
+# Feedback / Self-Improvement Commands
+# ──────────────────────────────────────────────
+feedback_app = typer.Typer(help="Log corrections and export fine-tune preference datasets")
+app.add_typer(feedback_app, name="feedback")
+
+
+@feedback_app.command("log")
+def feedback_log(
+    task: str = typer.Option(..., "--task", help="Original task given to the agent"),
+    wrong: str = typer.Option(..., "--wrong", help="The incorrect agent output"),
+    right: str = typer.Option(..., "--right", help="The corrected/expected output"),
+    agent: str = typer.Option("", "--agent", help="Agent name that produced the wrong output"),
+):
+    """Log a correction for later preference-dataset export."""
+    from core.self_improve import log_correction
+
+    result = log_correction(task, wrong, right, agent)
+    console.print(f"[green]Logged correction #{result['count']}[/green]")
+    if result["exported"]:
+        console.print(f"[cyan]Auto-exported dataset: {result['exported']}[/cyan]")
+
+
+@feedback_app.command("export")
+def feedback_export():
+    """Export the current preference dataset from all logged corrections."""
+    from core.self_improve import export_preference_dataset
+
+    out = export_preference_dataset()
+    if out:
+        console.print(f"[green]Exported: {out}[/green]")
+    else:
+        console.print("[yellow]No corrections logged yet.[/yellow]")
+
+
 if __name__ == "__main__":
     app()

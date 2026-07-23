@@ -1,6 +1,8 @@
 # AGENTS.md — 30-Agent Cognitive System
 
 > **📋 Active development tracking:** See [TODO.md](./TODO.md) for current tasks, progress, blockers, and next steps.
+>
+> **Docs:** [Windows smoke checklist](./docs/WINDOWS_SMOKE.md) · [Job-hunt case study](./docs/CASE_STUDY.md) · origin gaps in TODO Phase 7
 
 ---
 
@@ -42,11 +44,11 @@ inference in the cloud VM:
 - `/api/chat` → the orchestrator implements **memory store/retrieve**, not LLM routing (the
   routing code after the early `return` is unreachable). Tasks containing
   store/save/remember/memorize are stored in ChromaDB; anything else does a semantic search.
-- The squad REST endpoint (`POST /api/squads/{name}/run`) invokes the squad leader once and
-  does not drive the full LangGraph loop, so it returns `"No result produced"` /
-  `members_called: []`. Pre-existing.
-- `tests/test_agents.py::test_all_30_agents_can_be_imported` is a stale assertion (expects 31,
-  repo now has 39 agents) — pre-existing failure, unrelated to environment.
+- The squad REST endpoint (`POST /api/squads/{name}/run`) drives the squad leader in a
+  bounded loop (`run_squad_loop` in `squads/api.py`) until `result` / `END` / error.
+  Members are invoked inside the leader’s `delegating` stage.
+- `tests/test_agents.py::test_all_30_agents_can_be_imported` asserts `>= 30` agents and
+  presence of core names (count grows with outreach/SEO/audio extensions).
 - `pytest.ini` sets `timeout=30` but `pytest-timeout` isn't installed → harmless
   "Unknown config option: timeout" warning.
 

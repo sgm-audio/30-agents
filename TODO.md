@@ -291,6 +291,40 @@
 
 ---
 
+## Phase 7: Origin prompt gaps (from Backlog “System Build Prompts”)
+
+Mined from `Desktop/Backlog/30 Agent System Prompts` against the current tree.
+These are **feature ideas**, not blockers. Prefer shipping only what has a user.
+
+### Already covered (do not rebuild)
+- [✅] LangGraph + Ollama + Redis + ChromaDB core
+- [✅] Checkpointed model pull — `scripts/pull_models.py` + `main.py pull-models`
+- [✅] One-command / Windows start — `./start`, `Start-Agents.bat`, launcher
+- [✅] Chat UI (FastAPI static UI, not Streamlit)
+- [✅] Specialist agents + squads (different taxonomy than the original 30 names)
+
+### High leverage gaps
+- [✅] **Security gate** — `core/security_gate.py` whitelist + regex PII scrub; wired into `ToolDispatcherAgent`
+- [✅] **Self-improving loop** — `core/self_improve.py` + `scripts/feedback_loop.py` + `main.py feedback` + `POST /api/feedback/correction`
+- [✅] **Squad REST loop** — `run_squad_loop` in `squads/api.py` drives leader until result/END (was one-shot “No result produced”)
+- [✅] **Audio specialist** — `audio_analyst` in tier6 + registry + Vision squad routing
+
+### Domain specialists (YAGNI until a real workflow asks)
+- [⬜] Legal / healthcare / finance / education advisory agents (origin Phase 3 list)
+- [⬜] Ethical reasoning + explainability agents as first-class nodes
+- [⬜] Embodied / physical-world sensing agents
+
+### Ops polish from origin Phases 4–6 (Windows-shaped)
+- [✅] Scheduled `pull_models.py` — `scripts/schedule_pull_models.ps1` (hourly Task Scheduler)
+- [⬜] Optional Windows service wrapper equivalent to origin systemd unit (Start-Agents.bat covers interactive use)
+- [✅] Model-pull sleep/resume via existing `scripts/pull_models.py` checkpoint (formal service-level resume still N/A on Windows desktop)
+
+### Docs spun out of this mining
+- Smoke checklist: [`docs/WINDOWS_SMOKE.md`](./docs/WINDOWS_SMOKE.md)
+- Job-hunt case study: [`docs/CASE_STUDY.md`](./docs/CASE_STUDY.md)
+
+---
+
 ## Current Status Snapshot
 
 ```
@@ -311,4 +345,5 @@ Invoices:               ✅ Done (Zoho + Stripe integration)
 CRM:                    ✅ Done (lead states, history, scoring, pipeline)
 AGENTS.md:              ✅ Updated with Multica section
 STATUS_REPORT.md:       ✅ Written
+Origin gaps:            ✅ Phase 7 high-leverage done (security, feedback, squad loop, audio); domain YAGNI deferred
 ```

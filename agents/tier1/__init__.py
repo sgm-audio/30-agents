@@ -14,6 +14,7 @@ from core.config import settings
 from core.graph import AgentState
 from core.memory import get_memory
 from core.redis_client import get_redis
+from core.security_gate import check_tool_call, scrub_pii
 
 log = structlog.get_logger(__name__)
 
@@ -47,7 +48,7 @@ TIER 2 (Research): web_researcher, doc_reader, knowledge_synthesizer, fact_verif
 TIER 3 (Code): code_writer, code_reviewer, bug_hunter, system_architect, test_engineer
 TIER 4 (Content): writer, summarizer, translator, editor, content_strategist
 TIER 5 (Analysis): data_analyst, logic_engine, planner, critic, decision_engine, methodology_advisor
-TIER 6 (Multimodal): vision_analyst, embedding_engine, multimodal_synthesizer, media_coordinator
+TIER 6 (Multimodal): vision_analyst, embedding_engine, multimodal_synthesizer, media_coordinator, audio_analyst
 
 Respond with ONLY a JSON object:
 {"next_agent": "<agent_name>", "reasoning": "<brief explanation>", "subtask": "<refined task for the agent>"}
@@ -266,41 +267,46 @@ Given a task, determine which tool to use and format the result."""
         task = state["task"]
         context = state.get("context", {})
 
-        # Determine tool from task
-        tool_result = ""
-
+        # Determine tool + args from task
         if any(w in task.lower() for w in ["read file", "open file", "cat "]):
-            from tools.file_ops import read_file
-            filepath = context.get("filepath", "")
-            if filepath:
-                tool_result = read_file(filepath)
-            else:
-                tool_result = "Error: no filepath specified in context"
-
+            tool_name, tool_args = "read_file", {"filepath": context.get("filepath", "")}
         elif any(w in task.lower() for w in ["search", "find online", "look up"]):
-            try:
-                from duckduckgo_search import DDGS
-                query = context.get("query", task)
-                with DDGS() as ddgs:
-                    hits = list(ddgs.text(query, max_results=5))
-                if hits:
-                    lines = [f"{i+1}. {h['title']}\n   {h['href']}\n   {h['body'][:200]}"
-                             for i, h in enumerate(hits)]
-                    tool_result = "Web search results:\n\n" + "\n\n".join(lines)
-                else:
-                    tool_result = f"No results found for: {query}"
-            except Exception as e:
-                tool_result = f"Web search failed: {e}"
-
+            tool_name, tool_args = "web_search", {"query": context.get("query", task)}
         elif any(w in task.lower() for w in ["run", "execute"]):
-            from tools.code_exec import safe_exec
-            code = context.get("code", "")
-            if code:
-                tool_result = await safe_exec(code)
-            else:
-                tool_result = "Error: no code specified in context"
+            tool_name, tool_args = "python_repl", {"code": context.get("code", "")}
         else:
+            tool_name, tool_args = None, {}
+
+        if tool_name is None:
             tool_result = f"No matching tool for task: {task}"
+        else:
+            ok, reason = check_tool_call(tool_name, tool_args)
+            if not ok:
+                tool_result = f"Error: tool call blocked ({reason})"
+            elif tool_name == "read_file":
+                from tools.file_ops import read_file
+                filepath = tool_args["filepath"]
+                tool_result = read_file(filepath) if filepath else "Error: no filepath specified in context"
+            elif tool_name == "web_search":
+                try:
+                    from duckduckgo_search import DDGS
+                    query = tool_args["query"]
+                    with DDGS() as ddgs:
+                        hits = list(ddgs.text(query, max_results=5))
+                    if hits:
+                        lines = [f"{i+1}. {h['title']}\n   {h['href']}\n   {h['body'][:200]}"
+                                 for i, h in enumerate(hits)]
+                        tool_result = "Web search results:\n\n" + "\n\n".join(lines)
+                    else:
+                        tool_result = f"No results found for: {query}"
+                except Exception as e:
+                    tool_result = f"Web search failed: {e}"
+            else:  # python_repl
+                from tools.code_exec import safe_exec
+                code = tool_args["code"]
+                tool_result = await safe_exec(code) if code else "Error: no code specified in context"
+
+        tool_result = scrub_pii(tool_result)
 
         new_context = dict(context)
         new_context["tool_result"] = tool_result

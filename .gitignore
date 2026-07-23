@@ -1,6 +1,10 @@
 venv/
 data/chroma/
+data/corrections.jsonl
+data/finetune_data/
+data/pull_checkpoint.json
 logs/
+graphify-out/
 __pycache__/
 *.pyc
 *.pyo
