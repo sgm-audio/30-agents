@@ -8,6 +8,8 @@ stdin/stdout. Each tool call is proxied to the local FastAPI server.
 Environment:
   AGENTS30_API_BASE  Base URL for the 30-agent API (default: http://127.0.0.1:8000)
   AGENTS30_TIMEOUT   HTTP timeout seconds (default: 180)
+  API_SECRET         Same value as the API server's API_SECRET (sent as X-API-Key)
+  AGENTS30_API_SECRET  Alias for API_SECRET
 
 Usage (manual test):
   echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python tools/mcp_bridge.py
@@ -25,6 +27,7 @@ from typing import Any
 
 API_BASE = os.environ.get("AGENTS30_API_BASE", "http://127.0.0.1:8000").rstrip("/")
 TIMEOUT = float(os.environ.get("AGENTS30_TIMEOUT", "180"))
+API_SECRET = os.environ.get("AGENTS30_API_SECRET") or os.environ.get("API_SECRET") or ""
 
 SERVER_NAME = "30agents"
 SERVER_VERSION = "1.0.0"
@@ -227,6 +230,8 @@ def _request(method: str, path: str, body: dict | None = None, query: dict | Non
 
     data = None
     headers = {"Accept": "application/json"}
+    if API_SECRET:
+        headers["X-API-Key"] = API_SECRET
     if body is not None:
         data = json.dumps(body).encode("utf-8")
         headers["Content-Type"] = "application/json"

@@ -316,7 +316,13 @@ async function refreshHealth() {
 
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}/ws/${sessionId}`);
+  let token = sessionStorage.getItem('api_secret') || '';
+  if (!token) {
+    token = window.prompt('Enter API_SECRET for this session') || '';
+    if (token) sessionStorage.setItem('api_secret', token);
+  }
+  const q = token ? `?token=${encodeURIComponent(token)}` : '';
+  ws = new WebSocket(`${proto}://${location.host}/ws/${sessionId}${q}`);
   ws.onopen = () => refreshHealth();
   ws.onclose = () => setTimeout(connect, 2500);
   ws.onmessage = (e) => {

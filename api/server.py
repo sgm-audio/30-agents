@@ -9,6 +9,7 @@ Endpoints:
 """
 import asyncio
 import json
+import secrets
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -16,9 +17,9 @@ from pathlib import Path
 from typing import Any, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 from agents.registry import get_agent_info, register_all_agents
@@ -100,6 +101,49 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Paths that stay public (health + static UI shell). Everything else needs API_SECRET.
+_PUBLIC_PATHS = frozenset({"/", "/api/health", "/docs", "/openapi.json", "/redoc", "/docs/oauth2-redirect"})
+
+
+def _extract_api_secret(request: Request) -> Optional[str]:
+    api_key = request.headers.get("x-api-key")
+    if api_key:
+        return api_key
+    auth = request.headers.get("authorization") or ""
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip()
+    return request.query_params.get("token") or request.query_params.get("api_key")
+
+
+def _secret_ok(provided: Optional[str]) -> bool:
+    expected = settings.api_secret
+    if not expected or not provided:
+        return False
+    return secrets.compare_digest(provided, expected)
+
+
+@app.middleware("http")
+async def require_api_secret(request: Request, call_next):
+    """Reject unauthenticated HTTP API calls when API_SECRET is configured.
+
+    Fail closed if API_SECRET is unset (except public paths) so a misconfigured
+    bind to 0.0.0.0 cannot expose outreach/send/chat.
+    """
+    if request.method == "OPTIONS" or request.url.path in _PUBLIC_PATHS:
+        return await call_next(request)
+
+    if not settings.api_secret:
+        return JSONResponse(
+            {"detail": "API_SECRET not configured — refusing request"},
+            status_code=503,
+        )
+
+    if not _secret_ok(_extract_api_secret(request)):
+        return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+
+    return await call_next(request)
+
 
 app.include_router(squads_router)
 
@@ -1479,6 +1523,20 @@ async def run_autopilot_group(group_id: str):
 # ──────────────────────────────────────────────
 @app.websocket("/ws/{session_id}")
 async def websocket_chat(websocket: WebSocket, session_id: str):
+    # Browsers cannot set Authorization on WS; accept ?token= / ?api_key=
+    provided = (
+        websocket.query_params.get("token")
+        or websocket.query_params.get("api_key")
+        or websocket.headers.get("x-api-key")
+    )
+    auth = websocket.headers.get("authorization") or ""
+    if not provided and auth.lower().startswith("bearer "):
+        provided = auth[7:].strip()
+
+    if not settings.api_secret or not _secret_ok(provided):
+        await websocket.close(code=4401)
+        return
+
     await websocket.accept()
     graph = get_graph()
 
