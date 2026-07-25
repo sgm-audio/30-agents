@@ -314,22 +314,33 @@ async function refreshHealth() {
   }
 }
 
-function connect() {
+async function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   let token = sessionStorage.getItem('api_secret') || '';
   if (!token) {
     token = window.prompt('Enter API_SECRET for this session') || '';
     if (token) sessionStorage.setItem('api_secret', token);
   }
-  const q = token ? `?token=${encodeURIComponent(token)}` : '';
-  let opened = false;
-  ws = new WebSocket(`${proto}://${location.host}/ws/${sessionId}${q}`);
-  ws.onopen = () => { opened = true; refreshHealth(); };
-  ws.onclose = () => {
-    // Auth reject closes before open — drop bad secret so the next attempt re-prompts.
-    if (!opened) sessionStorage.removeItem('api_secret');
+  if (!token) {
+    addMsg('API_SECRET required — refresh the page to enter it.', 'system');
+    return;
+  }
+  // Probe over HTTP so a bad secret is cleared without treating network WS drops as auth failure.
+  try {
+    const probe = await fetch('/api/agents', { headers: { 'X-API-Key': token } });
+    if (probe.status === 401 || probe.status === 503) {
+      sessionStorage.removeItem('api_secret');
+      addMsg('Invalid or missing API_SECRET — refresh to retry.', 'system');
+      return;
+    }
+  } catch {
     setTimeout(connect, 2500);
-  };
+    return;
+  }
+  const q = `?token=${encodeURIComponent(token)}`;
+  ws = new WebSocket(`${proto}://${location.host}/ws/${sessionId}${q}`);
+  ws.onopen = () => refreshHealth();
+  ws.onclose = () => setTimeout(connect, 2500);
   ws.onmessage = (e) => {
     const data = JSON.parse(e.data);
     if (data.type === 'result') {

@@ -27,6 +27,13 @@ app = typer.Typer(help="30-Agent Cognitive System CLI")
 console = Console()
 
 
+def _api_headers() -> dict:
+    """Shared secret for CLI → local API calls (matches HTTP middleware)."""
+    if settings.api_secret:
+        return {"X-API-Key": settings.api_secret}
+    return {}
+
+
 @app.command()
 def serve(
     host: str = typer.Option("0.0.0.0", help="API host"),
@@ -202,7 +209,7 @@ def autopilot_list():
 
     async def _list():
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=10.0, headers=_api_headers()) as client:
                 r = await client.get(f"http://localhost:{settings.api_port}/api/autopilots")
                 r.raise_for_status()
                 data = r.json()
@@ -265,7 +272,7 @@ def autopilot_create(
 
     async def _create():
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=10.0, headers=_api_headers()) as client:
                 r = await client.post(
                     f"http://localhost:{settings.api_port}/api/autopilots",
                     json={
@@ -303,7 +310,7 @@ def autopilot_delete(name: str = typer.Argument(..., help="Autopilot name or ID"
 
     async def _delete():
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=10.0, headers=_api_headers()) as client:
                 list_r = await client.get("http://localhost:8000/api/autopilots")
                 list_r.raise_for_status()
                 autopilots = list_r.json()["autopilots"]
@@ -337,7 +344,7 @@ def autopilot_toggle(name: str = typer.Argument(..., help="Autopilot name or ID"
 
     async def _toggle():
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=10.0, headers=_api_headers()) as client:
                 list_r = await client.get("http://localhost:8000/api/autopilots")
                 list_r.raise_for_status()
                 autopilots = list_r.json()["autopilots"]
@@ -419,7 +426,7 @@ def autopilot_setup_defaults(
 
         created = []
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=30.0, headers=_api_headers()) as client:
                 for cfg in defaults:
                     try:
                         r = await client.post(
@@ -479,7 +486,7 @@ def outreach(
 
         # Check health first
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=10.0, headers=_api_headers()) as client:
                 health = await client.get(f"{base_url}/api/health")
                 if health.status_code != 200:
                     console.print("[red]API not responding. Start with: python main.py serve[/red]")
@@ -493,7 +500,7 @@ def outreach(
         console.print(f"\n[cyan]Running full pipeline (dry_run={actual_dry_run})...[/cyan]")
 
         try:
-            async with httpx.AsyncClient(timeout=300.0) as client:
+            async with httpx.AsyncClient(timeout=300.0, headers=_api_headers()) as client:
                 r = await client.post(
                     f"{base_url}/api/outreach/pipeline",
                     params={"city": city, "max_leads": max_leads, "dry_run": actual_dry_run},
