@@ -351,10 +351,13 @@ async function connect() {
     }
     const q = `?token=${encodeURIComponent(token)}`;
     await new Promise((resolve) => {
+      let settled = false;
+      const done = () => { if (!settled) { settled = true; resolve(); } };
       ws = new WebSocket(`${proto}://${location.host}/ws/${sessionId}${q}`);
-      ws.onopen = () => { refreshHealth(); resolve(); };
+      ws.onopen = () => { refreshHealth(); done(); };
       ws.onclose = () => {
         connectPromise = null;
+        done();
         setTimeout(connect, 2500);
       };
       ws.onmessage = (e) => {
