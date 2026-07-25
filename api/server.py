@@ -135,6 +135,9 @@ def _secret_ok(provided: Optional[str]) -> bool:
     expected = settings.api_secret
     if not expected or not provided:
         return False
+    # compare_digest raises if lengths differ
+    if len(provided) != len(expected):
+        return False
     return secrets.compare_digest(provided, expected)
 
 
