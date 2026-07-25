@@ -322,9 +322,14 @@ function connect() {
     if (token) sessionStorage.setItem('api_secret', token);
   }
   const q = token ? `?token=${encodeURIComponent(token)}` : '';
+  let opened = false;
   ws = new WebSocket(`${proto}://${location.host}/ws/${sessionId}${q}`);
-  ws.onopen = () => refreshHealth();
-  ws.onclose = () => setTimeout(connect, 2500);
+  ws.onopen = () => { opened = true; refreshHealth(); };
+  ws.onclose = () => {
+    // Auth reject closes before open — drop bad secret so the next attempt re-prompts.
+    if (!opened) sessionStorage.removeItem('api_secret');
+    setTimeout(connect, 2500);
+  };
   ws.onmessage = (e) => {
     const data = JSON.parse(e.data);
     if (data.type === 'result') {

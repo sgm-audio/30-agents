@@ -102,18 +102,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Paths that stay public (health + static UI shell). Everything else needs API_SECRET.
-_PUBLIC_PATHS = frozenset({"/", "/api/health", "/docs", "/openapi.json", "/redoc", "/docs/oauth2-redirect"})
+# Paths that stay public (health + static UI shell + provider webhooks).
+# Resend/Stripe cannot send API_SECRET — they use their own event payloads.
+_PUBLIC_PATHS = frozenset({
+    "/",
+    "/api/health",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+    "/docs/oauth2-redirect",
+    "/api/webhooks/resend",
+    "/api/webhooks/stripe",
+})
+
+
+def _extract_api_secret_values(headers, query_params) -> Optional[str]:
+    """Headers first, then query — same order for HTTP and WebSocket."""
+    api_key = headers.get("x-api-key")
+    if api_key:
+        return api_key
+    auth = headers.get("authorization") or ""
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip()
+    return query_params.get("token") or query_params.get("api_key")
 
 
 def _extract_api_secret(request: Request) -> Optional[str]:
-    api_key = request.headers.get("x-api-key")
-    if api_key:
-        return api_key
-    auth = request.headers.get("authorization") or ""
-    if auth.lower().startswith("bearer "):
-        return auth[7:].strip()
-    return request.query_params.get("token") or request.query_params.get("api_key")
+    return _extract_api_secret_values(request.headers, request.query_params)
 
 
 def _secret_ok(provided: Optional[str]) -> bool:
@@ -1523,15 +1538,8 @@ async def run_autopilot_group(group_id: str):
 # ──────────────────────────────────────────────
 @app.websocket("/ws/{session_id}")
 async def websocket_chat(websocket: WebSocket, session_id: str):
-    # Browsers cannot set Authorization on WS; accept ?token= / ?api_key=
-    provided = (
-        websocket.query_params.get("token")
-        or websocket.query_params.get("api_key")
-        or websocket.headers.get("x-api-key")
-    )
-    auth = websocket.headers.get("authorization") or ""
-    if not provided and auth.lower().startswith("bearer "):
-        provided = auth[7:].strip()
+    # Same extraction order as HTTP (headers then ?token= for browser UI).
+    provided = _extract_api_secret_values(websocket.headers, websocket.query_params)
 
     if not settings.api_secret or not _secret_ok(provided):
         await websocket.close(code=4401)
