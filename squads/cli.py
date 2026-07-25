@@ -13,12 +13,19 @@ import httpx
 import structlog
 import typer
 
+from core.config import settings
 from squads import ALL_SQUADS
 from squads.registry import get_squad_info
 
 log = structlog.get_logger(__name__)
 
 squad_cli = typer.Typer(help="Squad management commands")
+
+
+def _api_headers() -> dict:
+    if settings.api_secret:
+        return {"X-API-Key": settings.api_secret}
+    return {}
 
 
 async def run_squad_via_api(
@@ -60,7 +67,7 @@ async def run_squad_via_api(
     base_url = f"http://localhost:{settings.api_port}"
 
     try:
-        async with httpx.AsyncClient(timeout=300.0) as client:
+        async with httpx.AsyncClient(timeout=300.0, headers=_api_headers()) as client:
             req = {"task": actual_task, "session_id": session_id}
             context = {}
             if city:
@@ -159,7 +166,7 @@ def run_squad(
         base_url = f"http://localhost:{settings.api_port}"
 
         try:
-            async with httpx.AsyncClient(timeout=300.0) as client:
+            async with httpx.AsyncClient(timeout=300.0, headers=_api_headers()) as client:
                 req = {
                     "task": actual_task,
                     "session_id": session_id,

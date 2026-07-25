@@ -314,25 +314,71 @@ async function refreshHealth() {
   }
 }
 
-function connect() {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}/ws/${sessionId}`);
-  ws.onopen = () => refreshHealth();
-  ws.onclose = () => setTimeout(connect, 2500);
-  ws.onmessage = (e) => {
-    const data = JSON.parse(e.data);
-    if (data.type === 'result') {
-      // remove trailing processing marker
-      const nodes = [...document.querySelectorAll('.msg.system')];
-      const last = nodes[nodes.length - 1];
-      if (last && last.dataset.temp === '1') last.remove();
-      addMsg(data.result || '(empty response)', 'assistant');
-      setBusy(false);
-    } else if (data.type === 'error') {
-      addMsg(data.error || 'Something went wrong', 'system');
-      setBusy(false);
+let connectPromise = null;
+
+async function connect() {
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+    return;
+  }
+  if (connectPromise) return connectPromise;
+
+  connectPromise = (async () => {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    let token = sessionStorage.getItem('api_secret') || '';
+    if (!token) {
+      token = window.prompt('Enter API_SECRET for this session') || '';
+      if (token) sessionStorage.setItem('api_secret', token);
     }
-  };
+    if (!token) {
+      addMsg('API_SECRET required — refresh the page to enter it.', 'system');
+      return;
+    }
+    try {
+      const probe = await fetch('/api/agents', { headers: { 'X-API-Key': token } });
+      if (probe.status === 401) {
+        sessionStorage.removeItem('api_secret');
+        addMsg('Invalid API_SECRET — refresh to retry.', 'system');
+        return;
+      }
+      if (probe.status === 503) {
+        addMsg('Server API_SECRET not configured — retrying…', 'system');
+        setTimeout(() => { connectPromise = null; connect(); }, 5000);
+        return;
+      }
+    } catch {
+      setTimeout(() => { connectPromise = null; connect(); }, 2500);
+      return;
+    }
+    const q = `?token=${encodeURIComponent(token)}`;
+    await new Promise((resolve) => {
+      let settled = false;
+      const done = () => { if (!settled) { settled = true; resolve(); } };
+      ws = new WebSocket(`${proto}://${location.host}/ws/${sessionId}${q}`);
+      ws.onopen = () => { refreshHealth(); done(); };
+      ws.onclose = () => {
+        connectPromise = null;
+        done();
+        setTimeout(connect, 2500);
+      };
+      ws.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        if (data.type === 'result') {
+          const nodes = [...document.querySelectorAll('.msg.system')];
+          const last = nodes[nodes.length - 1];
+          if (last && last.dataset.temp === '1') last.remove();
+          addMsg(data.result || '(empty response)', 'assistant');
+          setBusy(false);
+        } else if (data.type === 'error') {
+          addMsg(data.error || 'Something went wrong', 'system');
+          setBusy(false);
+        }
+      };
+    });
+  })().finally(() => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) connectPromise = null;
+  });
+
+  return connectPromise;
 }
 
 function hideWelcome() {
@@ -356,13 +402,13 @@ function setBusy(v) {
   document.getElementById('send-btn').disabled = v;
 }
 
-function sendTask(task) {
+async function sendTask(task) {
   task = (task || '').trim();
   if (!task || busy) return;
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     addMsg('Not connected yet — retrying…', 'system');
-    connect();
-    return;
+    await connect();
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
   }
   addMsg(task, 'user');
   const tip = addMsg('Working on it…', 'system');
