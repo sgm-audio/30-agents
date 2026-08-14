@@ -11,7 +11,7 @@ Run after clone, dependency changes, or before a demo. Goal: prove Redis + API +
 ## 1. Bring the stack up
 
 ```powershell
-cd C:\Users\you\OneDrive\Desktop\30_agents
+cd <path-to-this-repo>
 # Preferred:
 .\Start-Agents.bat
 # Or:
@@ -75,7 +75,7 @@ Or CLI:
 ```
 
 - [ ] Request completes without process crash
-- [ ] Note: REST squad run may return a thin result (`No result produced`) — known limitation if LangGraph loop is not fully driven; CLI/`/api/chat` is the stronger path
+- [ ] Body has a `result` (the squad leader drives members in a bounded loop and returns a compiled report)
 
 ## 6. Fast tests (no live LLM required for most)
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# start — One-command ready: venv + Redis + API server
+# start — One-command ready: venv + Redis + Ollama + API server
 # Usage:
 #   ./start              # ensure deps/services, start API in background
 #   ./start --fg         # start API in foreground
@@ -75,6 +75,28 @@ ensure_redis() {
   return 1
 }
 
+ensure_ollama() {
+  if curl -sf --max-time 2 "http://127.0.0.1:11435/" >/dev/null 2>&1; then
+    info "Ollama: up"
+    return 0
+  fi
+  if ! command -v ollama >/dev/null 2>&1; then
+    warn "Ollama not found (optional — API boots in degraded mode)"
+    return 0
+  fi
+  warn "Starting Ollama on 127.0.0.1:11435 (config default)..."
+  OLLAMA_HOST=127.0.0.1:11435 ollama serve >"$ROOT/logs/ollama.log" 2>&1 &
+  for _ in 1 2 3 4 5; do
+    if curl -sf --max-time 2 "http://127.0.0.1:11435/" >/dev/null 2>&1; then
+      info "Ollama: up"
+      return 0
+    fi
+    sleep 1
+  done
+  warn "Ollama did not respond (API will run degraded)"
+  return 0
+}
+
 api_healthy() {
   curl -sf --max-time 2 "$API_URL/api/health" >/dev/null 2>&1
 }
@@ -111,14 +133,8 @@ stop_server() {
     fi
     rm -f "$PID_FILE"
   fi
-  # Also try tmux session used by run.sh / cloud agent
   if command -v tmux >/dev/null 2>&1; then
     tmux kill-session -t "$SESSION" 2>/dev/null || true
-    tmux -f /exec-daemon/tmux.portal.conf kill-session -t "agents30-serve" 2>/dev/null || true
-  fi
-  # Fallback: anything bound to :8000 from this project
-  if command -v fuser >/dev/null 2>&1; then
-    fuser -k 8000/tcp >/dev/null 2>&1 || true
   fi
 }
 
@@ -126,6 +142,7 @@ start_foreground() {
   ensure_dirs
   ensure_venv
   ensure_redis
+  ensure_ollama
   cd "$ROOT"
   info "Starting API in foreground on http://0.0.0.0:8000 ..."
   exec "$PYTHON" main.py serve
@@ -135,6 +152,7 @@ start_background() {
   ensure_dirs
   ensure_venv
   ensure_redis
+  ensure_ollama
 
   if api_healthy; then
     info "API already running"

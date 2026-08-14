@@ -1,94 +1,48 @@
 # AGENTS.md — 30-Agent Cognitive System
 
-> **📋 Active development tracking:** See [TODO.md](./TODO.md) for current tasks, progress, blockers, and next steps.
->
-> **Docs:** [Windows smoke checklist](./docs/WINDOWS_SMOKE.md) · [Job-hunt case study](./docs/CASE_STUDY.md) · origin gaps in TODO Phase 7
+> **Docs:** [Windows smoke checklist](./docs/WINDOWS_SMOKE.md) · [12-factor methodology](./methodology/) (third-party, Apache-2.0) · [Third-party notices](./THIRD_PARTY_NOTICES.md)
 
 ---
 
-## Cursor Cloud specific instructions
+## ⚡ Quick start
 
-This section is for future cloud agents. The update script already refreshes the Python
-venv + deps (`requirements.txt`). Standard dev/test/run commands live above and in `run.sh`
-/ `start`; only the non-obvious caveats are captured here.
+**Windows**
 
-### Starting services (deps are already installed)
-- **Redis** is required and is installed system-wide via `apt` (not pip). Start it with
-  `redis-server --daemonize yes --port 6379` (systemd is not running in the VM, so
-  `service`/`systemctl` won't work). `./start` also starts it if `redis-server` is present.
-- **API server:** `venv/bin/python main.py serve` (binds `0.0.0.0:8000`). On boot it waits up
-  to 30s for Ollama, then continues in `degraded` mode. Serve it in a tmux session, not a
-  one-shot background process.
-- Health: `curl -s localhost:8000/api/health`. `status:"ok"` needs Ollama; `status:"degraded"`
-  (with `redis:true`) is normal when Ollama is not running — the REST API + memory embeddings
-  path still require Ollama, so start it if you need real inference.
+1. Double-click **`Start-Agents.bat`** (first run creates the venv + installs deps).
+2. Open **http://127.0.0.1:8000/** — chat UI.
 
-### Real LLM inference on the CPU-only VM (Ollama)
-Ollama is **not** installed by the update script (heavy, optional). To exercise real agent
-inference in the cloud VM:
-1. Install Ollama (`curl -fsSL https://ollama.com/install.sh | sudo sh`; needs `zstd`).
-2. **Run it on port 11435** (the config default, NOT Ollama's default 11434):
-   `OLLAMA_HOST=127.0.0.1:11435 ollama serve`.
-3. **Critical gotcha:** Ollama auto-selects an AVX512 CPU backend
-   (`libggml-cpu-sapphirerapids.so`, `skylakex`, etc.) that **segfaults** in this VM. Move all
-   AVX512 variants out of `/usr/local/lib/ollama/` (sapphirerapids, cooperlake, cascadelake,
-   icelake, cannonlake, zen4, skylakex) so it falls back to the AVX2 (`haswell`/`alderlake`)
-   backend, then restart `ollama serve`. Embeddings (`nomic-embed-text`) work either way, but
-   text **generation** crashes until this is done.
-4. The default models in `core/config.py` are large GPU GGUFs. Create a `.env` (gitignored)
-   pointing `MODEL_FAST`/`MODEL_REASON` at a small CPU model, e.g. `llama3.2:1b`, keep
-   `MODEL_EMBED=nomic-embed-text`, and set `OLLAMA_HOST=http://127.0.0.1:11435`. Restart the
-   server after editing `.env` (it is read once at import; no hot reload for config).
+- **`Stop-Agents.bat`** — shut the API down.
+- **`Build-Exe.bat`** — (optional) build a one-file `dist\30-Agents.exe`.
+- **`Create-Desktop-Shortcut.bat`** — (optional) pin a "30 Agents" shortcut to the Desktop.
 
-### Behavior notes (not bugs to "fix")
-- `/api/chat` → the orchestrator implements **memory store/retrieve**, not LLM routing (the
-  routing code after the early `return` is unreachable). Tasks containing
-  store/save/remember/memorize are stored in ChromaDB; anything else does a semantic search.
-- The squad REST endpoint (`POST /api/squads/{name}/run`) drives the squad leader in a
-  bounded loop (`run_squad_loop` in `squads/api.py`) until `result` / `END` / error.
-  Members are invoked inside the leader’s `delegating` stage.
-- `tests/test_agents.py::test_all_30_agents_can_be_imported` asserts `>= 30` agents and
-  presence of core names (count grows with outreach/SEO/audio extensions).
-- `pytest.ini` sets `timeout=30` but `pytest-timeout` isn't installed → harmless
-  "Unknown config option: timeout" warning.
+**macOS / Linux**
 
----
+```bash
+./start            # venv + Redis + Ollama + API, background
+./start --fg       # foreground
+./start --status   # health only
+./start --stop     # stop
+```
 
-## ⚡ Everyday use (Windows)
-
-### Best experience
-1. Double-click **`Build-Exe.bat`** once (builds `dist\30-Agents.exe`)
-2. Double-click **`Create-Desktop-Shortcut.bat`** once
-3. Forever after: double-click **“30 Agents”** on your Desktop
-
-That opens a real app window (status + Start/Stop) and the chat UI at **http://127.0.0.1:8000/** — type what you want, or tap a starter.
-
-No build yet? Double-click **`Start-Agents.bat`** — same GUI via Python.
-
-- `Stop-Agents.bat` — shut the API down
-
-Mac/Linux: `./start` then open http://127.0.0.1:8000/
+Then open http://127.0.0.1:8000/.
 
 ---
 
 ## What this repo is
 
-Local, fully self-hosted 30-agent AI orchestration system. LangGraph + FastAPI + Ollama (no cloud API keys). Exposed as REST/WebSocket API at `http://localhost:8000` and a Typer CLI (`main.py`).
+Local, fully self-hosted 30-agent AI orchestration system. LangGraph + FastAPI + Ollama (no cloud API keys). Exposed as a REST/WebSocket API at `http://localhost:8000`, a Typer CLI (`main.py`), a Windows desktop launcher, and an in-repo MCP stdio bridge.
 
 ## Prerequisites
 
-`./start` brings up Redis + the API. For full agent LLM calls you also want:
+`./start` brings up venv + Redis + Ollama + the API. For full agent LLM calls you also want:
 1. **Ollama** — local models (without it, health shows `degraded` / `ollama:false` but the API still runs)
-2. **Redis** — started automatically by `./start` / `./run.sh` (system `redis-server`, Docker, or Podman)
+2. **Redis** — started automatically by `./start` (system `redis-server`, Docker, or Podman)
 3. **ChromaDB** — embedded; auto-persists to `data/chroma/`
 
 ## Developer commands
 
 ```bash
 ./start                         # recommended everyday entrypoint
-./run.sh                        # tmux session 'agents30'
-./run.sh --no-tmux              # foreground server
-
 python main.py health           # check Ollama + Redis + ChromaDB
 python main.py agents           # list all agents
 python main.py chat "your task" # one-shot task
@@ -146,11 +100,14 @@ All config lives in `.env` → `core/config.py` → `settings` singleton.
 | `MODEL_VISION` | `minicpm-v:8b` | Vision/multimodal |
 | `MODEL_EMBED` | `nomic-embed-text` | ChromaDB embeddings |
 | `AGENT_TIMEOUT` | `120` | Seconds per task (504 on breach) |
-| `HSA_OVERRIDE_GFX_VERSION` | `11.5.0` | AMD GPU compat hack — remove on non-AMD systems |
+| `API_SECRET` | *(unset)* | If set, required as `X-API-Key` on HTTP/WebSocket |
 
 ## 12-Factor Agent Methodology
 
-Copied to `methodology/` from [github.com/humanlayer/12-factor-agents](https://github.com/humanlayer/12-factor-agents).
+The `methodology/` folder contains the **12-factor agents** methodology by
+[Dexter Horthy / humanlayer](https://github.com/humanlayer/12-factor-agents),
+distributed under the **Apache License 2.0**. It is third-party content — see
+[`methodology/README.md`](./methodology/README.md) and [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md).
 
 | Factor | File | Maps to |
 |--------|------|---------|
@@ -174,9 +131,7 @@ A `methodology_advisor` agent (tier 5) can audit agent designs against these pri
 
 - **`.env` is parsed on first agent import** — missing/malformed `.env` breaks all agent imports.
 - **`core/config.py` creates `data/chroma/` and `logs/` on import** — side effects at import time.
-- **`duckduckgo_search` is not in `requirements.txt`** — `ToolDispatcherAgent` web search will fail unless manually installed.
-- **Python 3.14 venv** at `./venv/` is the source of truth for exact package versions (no lockfile).
-- **Non-AMD GPU**: remove `OLLAMA_VULKAN=1` and `HSA_OVERRIDE_GFX_VERSION` from `.env` and `run.sh`.
+- **No lockfile** — the venv at `./venv/` is the source of truth for exact package versions; `requirements.txt` uses `>=` pins.
 - **Redis key namespaces**: `session:<id>`, `workflow:<id>`, `agent:metrics:<name>`, `history:<id>`.
 
 ---
@@ -191,13 +146,13 @@ FIRECRAWL_API_KEY=     # firecrawl.ai — website scraping
 HUNTER_API_KEY=        # hunter.io — email finding
 RESEND_API_KEY=        # resend.com — email delivery
 OUTREACH_EMAIL_FROM=   # your sending address (e.g. you@example.com)
-OUTREACH_DOMAIN=       # your domain (e.g. sgmstudios.ca)
+OUTREACH_DOMAIN=       # your domain (e.g. example.com)
 ```
 
 ### Outreach Agents (Tier 2 & 4)
 | Agent | File | Purpose |
 |-------|------|---------|
-| `lead_scout` | `agents/tier2_outreach.py` | Finds Vancouver businesses without websites via Serper + Tavily |
+| `lead_scout` | `agents/tier2_outreach.py` | Finds businesses without websites via Serper + Tavily |
 | `email_finder` | `agents/tier2_outreach.py` | Resolves emails via Hunter.io + domain inference |
 | `outreach_writer` | `agents/tier4_outreach.py` | Generates 3-4 sentence personalized cold emails |
 | `web_design_concept` | `agents/tier2_seo_design.py` | Researches design trends, proposes redesign concepts |
@@ -232,29 +187,11 @@ python main.py outreach --city Vancouver --max-leads 100 --send
 
 ---
 
-## AutoGPT Integration (GCP VM)
-
-AutoGPT runs on GCP at `YOUR_SERVER_IP` (project: `YOUR_GCP_PROJECT`). Custom blocks for this outreach system should be built in `AutoGPT/autogpt_platform/backend/backend/blocks/vancouver_outreach/`.
-
-AutoGPT workflow calls `http://YOUR_SERVER_IP:8006/api/...` endpoints on the 30-agent server.
-
-To start AutoGPT on GCP:
-```bash
-# In the AutoGPT/autogpt_platform directory on the VM
-docker compose -f docker-compose.yml --profile full up -d
-```
-
----
-
-## Multica Integration
-
-Multica connects an MCP-compatible client (e.g. opencode, Claude Desktop) to the 30-agent system via the **MCP Bridge Server**, plus adds **Discord webhook notifications**, and a **Squad Architecture** for grouped agent workflows.
-
-### MCP Bridge — Expose 30 Agents as MCP Tools
+## MCP Bridge — Expose Agents as MCP Tools
 
 The in-repo bridge (`tools/mcp_bridge.py`) implements the Model Context Protocol over stdio. It proxies MCP `tools/list` and `tools/call` requests to the 30-agent REST API (`localhost:8000`).
 
-#### Cursor wiring (primary)
+### Cursor wiring
 
 Project MCP config is committed at `.cursor/mcp.json`. Open this repo in Cursor, start the API (`python main.py serve`), then verify **Settings → MCP** shows `30agents` connected.
 
@@ -273,9 +210,23 @@ Project MCP config is committed at `.cursor/mcp.json`. Open this repo in Cursor,
 }
 ```
 
-Optional global install: copy the same server entry into `~/.cursor/mcp.json`, or enable the local plugin at `~/.cursor/plugins/local/30-agents/`.
+### OpenCode / Claude Desktop
 
-#### Exposed Tools
+```jsonc
+{
+  "mcp": {
+    "30agents": {
+      "type": "local",
+      "command": ["python3", "tools/mcp_bridge.py"],
+      "enabled": true
+    }
+  }
+}
+```
+
+No separate daemon is needed — the MCP client spawns the bridge process automatically on startup. The 30-agent server must be running on `localhost:8000`.
+
+### Exposed Tools
 
 | Tool | Maps to | Description |
 |------|---------|-------------|
@@ -294,38 +245,10 @@ Optional global install: copy the same server entry into `~/.cursor/mcp.json`, o
 | `design_concept` | `POST /api/design/concept` | Design trend research + concept |
 | `health_check` | `GET /api/health` | System health status |
 
-#### OpenCode / Claude Desktop
-
-The same bridge script works with other MCP clients. Example OpenCode config:
-
-```jsonc
-{
-  "mcp": {
-    "30agents": {
-      "type": "local",
-      "command": ["python3", "tools/mcp_bridge.py"],
-      "enabled": true
-    }
-  }
-}
-```
-
-No separate daemon is needed — the MCP client spawns the bridge process automatically on startup.
-
-#### Prerequisites
-
-The 30-agent server must be running on `localhost:8000`:
-
-```bash
-python main.py serve
-# or (with hot reload)
-python main.py serve --reload
-```
-
-#### Tool Registration Flow
+### Tool Registration Flow
 
 ```
-MCP Client (opencode)
+MCP Client (Cursor / OpenCode)
   │
   │  stdio JSON-RPC 2.0
   ▼
@@ -341,11 +264,13 @@ FastAPI Server (localhost:8000)
   └── /api/health        → System health
 ```
 
-### Discord Webhook Notifications
+---
+
+## Discord Webhook Notifications
 
 `core/discord_webhook.py` sends formatted Discord embed messages when agents complete or fail tasks. Config lives in `config/discord_webhook.json`.
 
-#### Configuration
+### Configuration
 
 ```json
 {
@@ -369,7 +294,7 @@ Or via CLI through autopilot setup:
 python main.py autopilot setup-defaults --webhook https://discord.com/api/webhooks/...
 ```
 
-#### Notification Types
+### Notification Types
 
 | Function | Trigger | Embed Color |
 |----------|---------|-------------|
@@ -380,17 +305,19 @@ python main.py autopilot setup-defaults --webhook https://discord.com/api/webhoo
 
 Each notification includes agent name, task summary, duration, and result/error fields in a Discord embed.
 
-#### Config API
+### Config API
 
 ```python
 from core.discord_webhook import get_config, is_enabled, get_webhook_url, get_notify_on
 ```
 
-### Squad Architecture
+---
+
+## Squad Architecture
 
 A **Squad** is a group of specialist agents led by a **Squad Leader** that routes work to members based on task type. This enables addressing a squad as a unit (`@OutreachSquad`) rather than individual agents.
 
-#### Available Squads (6)
+### Available Squads (6)
 
 | Squad | Members | Pipeline |
 |-------|---------|----------|
@@ -401,7 +328,7 @@ A **Squad** is a group of specialist agents led by a **Squad Leader** that route
 | `@CodeSquad` | code_writer → code_reviewer → bug_hunter → system_architect → test_engineer | Sequential with review loop (max 2 rewrites) |
 | `@VisionSquad` | vision_analyst → embedding_engine → multimodal_synthesizer → media_coordinator | Sequential or direct routing by task type |
 
-#### Squad Leader Routing
+### Squad Leader Routing
 
 Squad Leaders override `SquadLeader` base class (`squads/base.py`) with custom routing:
 
@@ -413,7 +340,7 @@ Squad Leaders override `SquadLeader` base class (`squads/base.py`) with custom r
 
 Members return to the squad leader (not the orchestrator) via `next_agent: "<squad_leader>"`. The leader tracks progress in `context["squad_stage"]`.
 
-#### Squad Config Files
+### Squad Config Files
 
 Each squad has a JSON config in `squads/config/`:
 
@@ -427,7 +354,7 @@ squads/config/
 └── vision_squad.json
 ```
 
-#### Registration
+### Registration
 
 All 6 squad leaders are registered with the agent graph via `squads/registry.py`:
 
@@ -478,7 +405,7 @@ Response:
 python main.py squads
 
 # Run a squad pipeline
-python main.py squad run outreach                     # default: find Vancouver leads
+python main.py squad run outreach                     # default: find leads
 python main.py squad run seo --url example.com        # SEO audit
 python main.py squad run analytics                    # data analysis
 python main.py squad run content                      # content creation
@@ -492,64 +419,6 @@ python main.py squad run seo --url https://mysite.com --city Vancouver
 
 The `squad run` command calls the REST endpoint and displays results with rich formatting.
 
-### Architecture Diagram
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    MCP Client (opencode)                     │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  ~/.config/opencode/opencode.jsonc                  │   │
-│  │  "30agents": { type: "local", command: "python ..." }│   │
-│  └──────────────────────────────────────────────────────┘   │
-└───────────────────────┬─────────────────────────────────────┘
-                        │ stdio JSON-RPC 2.0
-                        ▼
-┌──────────────────────────────────────────────────────────────┐
-│              MCP Bridge (~/.config/opencode/mcp_bridge.py)    │
-│                                                              │
-│  ┌─────────────┐  ┌──────────────┐  ┌───────────────────┐   │
-│  │ tools/list  │  │ tools/call   │  │ health_check      │   │
-│  │ → 11 MCP    │  │ → proxy POST │  │ → GET /api/health │   │
-│  │ tools       │  │ to REST API  │  │                   │   │
-│  └─────────────┘  └──────┬───────┘  └───────────────────┘   │
-└───────────────────────────┬──────────────────────────────────┘
-                            │ HTTP localhost:8000
-                            ▼
-┌──────────────────────────────────────────────────────────────┐
-│              FastAPI Server (main.py serve)                   │
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐    │
-│  │                 REST Endpoints                       │    │
-│  │  /api/chat  /api/outreach/*  /api/seo/*  /api/squads │    │
-│  └──────────────────────┬───────────────────────────────┘    │
-│                         │                                    │
-│  ┌──────────────────────▼───────────────────────────────┐    │
-│  │              Squad Leaders (6 registered)             │    │
-│  │  ┌──────────┐ ┌──────┐ ┌────────┐ ┌───────┐ ┌────┐  │    │
-│  │  │Outreach  │ │ SEO  │ │Analytics│ │Content│ │Code│  │    │
-│  │  │Leader    │ │Leader│ │Leader   │ │Leader │ │Leader│  │    │
-│  │  └────┬─────┘ └──┬───┘ └───┬────┘ └───┬───┘ └──┬───┘  │    │
-│  │       │          │         │          │        │       │    │
-│  │  ┌────▼────┐ ┌──▼──┐ ┌───▼───┐ ┌──▼──┐ ┌──▼───┐ │    │
-│  │  │3 members│ │5    │ │4      │ │5    │ │5     │ │    │
-│  │  │         │ │membr│ │members│ │membr│ │membrs│ │    │
-│  │  └─────────┘ └─────┘ └───────┘ └─────┘ └──────┘ │    │
-│  └───────────────────────────────────────────────────────┘    │
-│                         │                                    │
-│  ┌──────────────────────▼───────────────────────────────┐    │
-│  │            LangGraph Agent Graph (30 nodes)          │    │
-│  │  Tier 1-6 Specialist Agents, Orchestrator, Memory,   │    │
-│  │  Context, Tool Dispatcher, State Machine             │    │
-│  └──────────────────────────────────────────────────────┘    │
-│                         │                                    │
-│  ┌──────────────────────▼───────────────────────────────┐    │
-│  │       Discord Webhook (core/discord_webhook.py)      │    │
-│  │  agent_complete → Green embed   agent_error → Red    │    │
-│  │  pipeline_complete → Green      test_webhook → Orange│    │
-│  └──────────────────────────────────────────────────────┘    │
-└──────────────────────────────────────────────────────────────┘
-```
-
 ### File Layout Summary
 
 | File | Purpose |
@@ -561,7 +430,7 @@ The `squad run` command calls the REST endpoint and displays results with rich f
 | `api/ui/index.html` | Chat front door in the browser |
 | `Stop-Agents.bat` | Windows: stop the API |
 | `Create-Desktop-Shortcut.bat` | Windows: Desktop shortcut for Start-Agents |
-| `start` | One-command ready: venv + Redis + API |
+| `start` | One-command ready: venv + Redis + Ollama + API |
 | `scripts/shell_init.sh` | Puts venv on PATH; aliases `agents-up` / `agents-status` / … |
 | `tools/mcp_bridge.py` | MCP stdio bridge — Cursor/OpenCode tools mapped to REST endpoints |
 | `.cursor/mcp.json` | Cursor project MCP config — registers `30agents` server |
@@ -580,4 +449,4 @@ The `squad run` command calls the REST endpoint and displays results with rich f
 | `squads/config/*.json` | Per-squad JSON config files |
 | `core/discord_webhook.py` | Discord notification sender (completion, error, pipeline, test) |
 | `config/discord_webhook.json` | Webhook URL, enabled flag, notify_on filter |
-| `main.py` | Updated with `squads`, `squad run` commands + `--webhook` on autopilot |
+| `main.py` | Typer CLI: `serve`, `chat`, `health`, `agents`, `squads`, `squad run`, `outreach`, `autopilot` |

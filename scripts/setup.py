@@ -153,7 +153,7 @@ Next steps:
        python scripts/pull_models.py
 
   2. Start the system:
-       ./run.sh
+       ./start
 
   3. Open the web UI:
        http://localhost:8000
