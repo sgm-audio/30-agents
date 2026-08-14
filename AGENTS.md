@@ -30,7 +30,7 @@ Then open http://127.0.0.1:8000/.
 
 ## What this repo is
 
-Local, fully self-hosted 30-agent AI orchestration system. LangGraph + FastAPI + Ollama (no cloud API keys). Exposed as a REST/WebSocket API at `http://localhost:8000`, a Typer CLI (`main.py`), a Windows desktop launcher, and an in-repo MCP stdio bridge.
+Local, fully self-hosted multi-agent AI orchestration system. LangGraph + FastAPI + Ollama (no cloud API keys). Exposed as a REST/WebSocket API at `http://localhost:8000`, a Typer CLI (`main.py`), a Windows desktop launcher, and an in-repo MCP stdio bridge.
 
 ## Prerequisites
 
@@ -120,7 +120,7 @@ distributed under the **Apache License 2.0**. It is third-party content — see
 | 7 — Contact Humans with Tools | `methodology/factor-07-*.md` | Not yet implemented |
 | 8 — Own Your Control Flow | `methodology/factor-08-*.md` | Explicit `next_agent` routing in LangGraph |
 | 9 — Compact Errors into Context | `methodology/factor-09-*.md` | `error` + `retries` in state |
-| 10 — Small, Focused Agents | `methodology/factor-10-*.md` | 30 single-purpose agents across 6 tiers |
+| 10 — Small, Focused Agents | `methodology/factor-10-*.md` | 40 registered agents across 6 tiers + domain extensions |
 | 11 — Trigger from Anywhere | `methodology/factor-11-*.md` | REST API (`main.py serve`) + CLI (`main.py chat`) |
 | 12 — Stateless Reducer | `methodology/factor-12-*.md` | LangGraph nodes as state reducers |
 | 13 — Pre-fetch Context | `methodology/appendix-13-*.md` | `context_tracker` + `memory_manager` agents |

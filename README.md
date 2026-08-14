@@ -1,6 +1,6 @@
 # 30 Agents
 
-A fully self-hosted, multi-agent orchestration system. **LangGraph + FastAPI + Ollama** — no cloud API keys. Thirty-plus specialist agents across six tiers, composable into **squads** (pipeline workflows), exposed through a REST/WebSocket API, a Typer CLI, a Windows desktop launcher, and an in-repo **MCP stdio bridge** so Cursor/OpenCode can call the same endpoints as tools.
+A fully self-hosted, multi-agent orchestration system. **LangGraph + FastAPI + Ollama** — no cloud API keys. Forty specialist agents across six tiers (plus outreach/SEO/audio extensions), composable into **squads** (pipeline workflows), exposed through a REST/WebSocket API, a Typer CLI, a Windows desktop launcher, and an in-repo **MCP stdio bridge** so Cursor/OpenCode can call the same endpoints as tools.
 
 - **Local inference** via Ollama — nothing leaves your machine
 - **Explicit routing** — agents return `next_agent`; the orchestrator routes; `result` ends the run
