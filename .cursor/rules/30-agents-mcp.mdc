@@ -20,7 +20,10 @@ Prefer these MCP tools over reinventing pipelines:
 ## Prerequisites
 
 ```bash
-./start   # ensures venv + Redis + API
+./start   # ensures venv + Redis + Ollama + API
 ```
+
+The MCP bridge (`tools/mcp_bridge.py`) is stdlib-only, so it runs with any Python 3
+from PATH — no venv required. On Linux/macOS use `python3` if `python` isn't available.
 
 `outreach_send` and `outreach_pipeline` default to `dry_run=true` — only set `dry_run=false` when the user explicitly asks to send real email.

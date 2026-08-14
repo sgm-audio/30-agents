@@ -200,7 +200,7 @@ Project MCP config is committed at `.cursor/mcp.json`. Open this repo in Cursor,
   "mcpServers": {
     "30agents": {
       "type": "stdio",
-      "command": "python3",
+      "command": "python",
       "args": ["${workspaceFolder}/tools/mcp_bridge.py"],
       "env": {
         "AGENTS30_API_BASE": "http://127.0.0.1:8000"
@@ -217,7 +217,7 @@ Project MCP config is committed at `.cursor/mcp.json`. Open this repo in Cursor,
   "mcp": {
     "30agents": {
       "type": "local",
-      "command": ["python3", "tools/mcp_bridge.py"],
+      "command": ["python", "tools/mcp_bridge.py"],
       "enabled": true
     }
   }

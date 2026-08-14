@@ -107,7 +107,7 @@ A **squad** is a group of specialists led by a **squad leader** that routes work
   "mcp": {
     "30agents": {
       "type": "local",
-      "command": ["python3", "tools/mcp_bridge.py"],
+      "command": ["python", "tools/mcp_bridge.py"],
       "enabled": true
     }
   }
