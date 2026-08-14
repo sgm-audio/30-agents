@@ -9,7 +9,7 @@ Description=Agent system health-check and auto-restart
 Type=oneshot
 # Restart Ollama if it is not responding
 ExecStart=/bin/bash -c '\
-    if ! curl -sf http://127.0.0.1:11434/ >/dev/null 2>&1; then \
+    if ! curl -sf http://127.0.0.1:11435/ >/dev/null 2>&1; then \
         systemctl --user restart ollama; \
         sleep 3; \
     fi; \

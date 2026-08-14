@@ -5,8 +5,9 @@ Requires=ollama.service
 
 [Service]
 Type=simple
-WorkingDirectory=/var/home/SGM/30_agents
-ExecStart=/var/home/SGM/30_agents/venv/bin/python main.py serve
+# Update this path to your checkout before installing the unit.
+WorkingDirectory=/opt/30-agents
+ExecStart=/opt/30-agents/venv/bin/python main.py serve
 Restart=always
 RestartSec=10
 StandardOutput=journal

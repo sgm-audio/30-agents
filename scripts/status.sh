@@ -24,13 +24,13 @@ echo -e "${CYAN}═════════════════════�
 echo ""
 
 echo -e "${YELLOW}Services:${NC}"
-check "Ollama"  "curl -sf http://127.0.0.1:11434/"
+check "Ollama"  "curl -sf http://127.0.0.1:11435/"
 check "Redis"   "podman exec redis-agent redis-cli ping"
 check "API"     "curl -sf http://127.0.0.1:8000/api/health"
 
 echo ""
 echo -e "${YELLOW}Models:${NC}"
-MODELS_JSON=$(curl -sf http://127.0.0.1:11434/api/tags 2>/dev/null || echo '{"models":[]}')
+MODELS_JSON=$(curl -sf http://127.0.0.1:11435/api/tags 2>/dev/null || echo '{"models":[]}')
 if echo "$MODELS_JSON" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
