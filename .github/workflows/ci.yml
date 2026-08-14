@@ -32,5 +32,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Smoke-import full app
+        run: python -c "import api.server, main; print('app imports OK')"
+
       - name: Run tests
         run: pytest -q
