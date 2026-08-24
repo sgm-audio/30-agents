@@ -25,7 +25,11 @@ ALLOWED_TOOLS = frozenset({
     "list_dir",
 })
 
-_EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
+# The domain-label repetition is wrapped in an atomic group so the engine
+# cannot re-partition dots between `(label.)+` and the TLD on backtracking —
+# keeps matching linear-time on hostile input (CodeQL py/redos). Requires
+# Python >= 3.11 (atomic groups).
+_EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@(?>(?:[a-zA-Z0-9-]+\.)+)[a-zA-Z]{2,}")
 _SSN_RE = re.compile(r"(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)")
 _PHONE_RE = re.compile(r"(?<!\d)(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}(?!\d)")
 

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import base64
 import json
-from pathlib import Path
 from typing import Any
 
 import structlog
@@ -16,6 +15,7 @@ from core.config import settings
 from core.graph import AgentState
 from core.memory import get_memory
 from core.ollama_client import get_ollama
+from core.validation import resolve_allowed_path, validate_public_http_url
 
 log = structlog.get_logger(__name__)
 
@@ -59,7 +59,12 @@ class VisionAnalystAgent(BaseAgent):
         ollama = get_ollama()
 
         if not image_b64 and image_path:
-            p = Path(image_path)
+            try:
+                p = resolve_allowed_path(image_path)
+            except ValueError:
+                log.warning("vision_analyst.path_blocked", image_path=image_path)
+                analysis = f"Image path not allowed (outside allowed roots): {image_path}"
+                return {"result": analysis, "next_agent": "END"}
             if p.exists():
                 image_b64 = base64.b64encode(p.read_bytes()).decode()
             else:
@@ -68,9 +73,14 @@ class VisionAnalystAgent(BaseAgent):
 
         if not image_b64 and image_url:
             try:
+                safe_image_url = validate_public_http_url(image_url)
+            except ValueError as e:
+                analysis = f"Image URL blocked: {e}"
+                return {"result": analysis, "next_agent": "END"}
+            try:
                 import httpx
                 async with httpx.AsyncClient(timeout=30.0) as client:
-                    resp = await client.get(image_url)
+                    resp = await client.get(safe_image_url)
                     resp.raise_for_status()
                     image_b64 = base64.b64encode(resp.content).decode()
             except Exception as e:
@@ -318,12 +328,16 @@ reason from the task description and any file metadata provided."""
         audio_path = context.get("audio_path", "") or context.get("file_path", "")
         file_info = ""
         if audio_path:
-            p = Path(audio_path)
-            if p.exists() and p.is_file():
+            try:
+                p = resolve_allowed_path(audio_path)
+            except ValueError:
+                log.warning("audio_analyst.path_blocked", audio_path=audio_path)
+                p = None
+            if p is not None and p.exists() and p.is_file():
                 size_kb = p.stat().st_size / 1024
                 file_info = f"\n\nAudio file: {p.name} ({p.suffix or 'no extension'}, {size_kb:.1f} KB)"
             else:
-                file_info = f"\n\nNote: audio file not found at {audio_path} (reasoning from task description only)."
+                file_info = f"\n\nNote: audio file not found or not accessible at {audio_path} (reasoning from task description only)."
 
         analysis = await self.llm(f"{task}{file_info}")
 

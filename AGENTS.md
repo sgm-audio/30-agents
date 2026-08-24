@@ -101,6 +101,7 @@ All config lives in `.env` → `core/config.py` → `settings` singleton.
 | `MODEL_EMBED` | `nomic-embed-text` | ChromaDB embeddings |
 | `AGENT_TIMEOUT` | `120` | Seconds per task (504 on breach) |
 | `API_SECRET` | *(unset)* | If set, required as `X-API-Key` on HTTP/WebSocket |
+| `AGENT_ALLOWED_PATHS` | *(unset)* | os.pathsep-separated extra file-read roots for agents (default: project root, cwd, user home) — enforced by `core/validation.py` |
 
 ## 12-Factor Agent Methodology
 

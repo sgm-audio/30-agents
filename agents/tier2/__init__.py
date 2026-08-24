@@ -13,6 +13,7 @@ from agents.base import BaseAgent
 from core.config import settings
 from core.graph import AgentState
 from core.memory import get_memory
+from core.validation import resolve_allowed_path, validate_public_http_url
 
 log = structlog.get_logger(__name__)
 
@@ -49,13 +50,18 @@ for the user's query. Be concise and cite specific details."""
 
         if url:
             try:
-                async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                    headers = {"User-Agent": "Mozilla/5.0 (research bot)"}
-                    resp = await client.get(url, headers=headers)
-                    resp.raise_for_status()
-                    md_content = html2text(resp.text)[:4000]
-            except Exception as e:
-                md_content = f"Failed to fetch {url}: {e}"
+                safe_url = validate_public_http_url(url)
+            except ValueError as e:
+                md_content = f"Blocked URL ({e}): {url}"
+            else:
+                try:
+                    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                        headers = {"User-Agent": "Mozilla/5.0 (research bot)"}
+                        resp = await client.get(safe_url, headers=headers)
+                        resp.raise_for_status()
+                        md_content = html2text(resp.text)[:4000]
+                except Exception as e:
+                    md_content = f"Failed to fetch {url}: {e}"
         else:
             md_content = f"[No URL provided. Would search for: {task}]"
 
@@ -96,31 +102,35 @@ actionable insights. Format your output clearly."""
 
         content = ""
         if filepath:
-            from pathlib import Path
-            path = Path(filepath)
-            if not path.exists():
-                content = f"File not found: {filepath}"
-            elif path.suffix.lower() == ".pdf":
-                try:
-                    from pypdf import PdfReader
-                    reader = PdfReader(str(path))
-                    content = "\n".join(page.extract_text() or "" for page in reader.pages)
-                    content = content[:8000]
-                except Exception as e:
-                    content = f"PDF read error: {e}"
-            elif path.suffix.lower() in (".docx", ".doc"):
-                try:
-                    from docx import Document
-                    doc = Document(str(path))
-                    content = "\n".join(p.text for p in doc.paragraphs)
-                    content = content[:8000]
-                except Exception as e:
-                    content = f"DOCX read error: {e}"
+            try:
+                path = resolve_allowed_path(filepath)
+            except ValueError:
+                log.warning("doc_reader.path_blocked", filepath=filepath)
+                content = f"Access denied (path outside allowed roots): {filepath}"
             else:
-                try:
-                    content = path.read_text(encoding="utf-8", errors="replace")[:8000]
-                except Exception as e:
-                    content = f"Read error: {e}"
+                if not path.exists():
+                    content = f"File not found: {filepath}"
+                elif path.suffix.lower() == ".pdf":
+                    try:
+                        from pypdf import PdfReader
+                        reader = PdfReader(str(path))
+                        content = "\n".join(page.extract_text() or "" for page in reader.pages)
+                        content = content[:8000]
+                    except Exception as e:
+                        content = f"PDF read error: {e}"
+                elif path.suffix.lower() in (".docx", ".doc"):
+                    try:
+                        from docx import Document
+                        doc = Document(str(path))
+                        content = "\n".join(p.text for p in doc.paragraphs)
+                        content = content[:8000]
+                    except Exception as e:
+                        content = f"DOCX read error: {e}"
+                else:
+                    try:
+                        content = path.read_text(encoding="utf-8", errors="replace")[:8000]
+                    except Exception as e:
+                        content = f"Read error: {e}"
         else:
             content = f"[No filepath provided for task: {task}]"
 

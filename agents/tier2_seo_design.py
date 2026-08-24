@@ -14,6 +14,7 @@ import structlog
 from agents.base import BaseAgent, extract_json
 from core.config import settings
 from core.graph import AgentState
+from core.validation import validate_public_http_url
 
 log = structlog.get_logger(__name__)
 
@@ -358,7 +359,8 @@ Return: score out of 100 + specific prioritized fixes
         for check_url, key in [(sitemap_url, "sitemap"), (robots_url, "robots_txt")]:
             try:
                 import httpx
-                r = httpx.get(check_url, timeout=8.0, follow_redirects=True)
+                safe_check_url = validate_public_http_url(check_url)
+                r = httpx.get(safe_check_url, timeout=8.0, follow_redirects=True)
                 checks[key] = r.status_code == 200 and len(r.text) > 10
             except Exception:
                 checks[key] = False
@@ -372,7 +374,8 @@ Return: score out of 100 + specific prioritized fixes
         schema_url = target_url.rstrip("/") + "/schema.json"
         try:
             import httpx
-            r = httpx.get(schema_url, timeout=5.0)
+            safe_schema_url = validate_public_http_url(schema_url)
+            r = httpx.get(safe_schema_url, timeout=5.0)
             checks["schema_json"] = r.status_code == 200
         except Exception:
             checks["schema_json"] = False
