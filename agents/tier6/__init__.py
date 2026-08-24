@@ -59,11 +59,21 @@ class VisionAnalystAgent(BaseAgent):
         ollama = get_ollama()
 
         if not image_b64 and image_path:
+            safe_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff"}
+            if (
+                not isinstance(image_path, str)
+                or not image_path.strip()
+                or "\x00" in image_path
+                or image_path.startswith(("/", "\\"))
+            ):
+                analysis = "Blocked unsafe image path."
+                return {"result": analysis, "next_agent": "END"}
+
             p = resolve_workspace_path(image_path)
-            if p and p.exists():
+            if p and p.is_file() and p.suffix.lower() in safe_exts:
                 image_b64 = base64.b64encode(p.read_bytes()).decode()
             else:
-                analysis = f"Image file not found: {image_path}"
+                analysis = f"Image file not found or unsupported type: {image_path}"
                 return {"result": analysis, "next_agent": "END"}
 
         if not image_b64 and image_url:
