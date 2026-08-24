@@ -28,6 +28,7 @@ ALLOWED_TOOLS = frozenset({
 _EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
 _SSN_RE = re.compile(r"(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)")
 _PHONE_RE = re.compile(r"(?<!\d)(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}(?!\d)")
+_MAX_SCRUB_TEXT_LEN = 10000
 
 # Dangerous shell/command patterns that should never appear in tool args.
 _BLOCKED_ARG_PATTERNS = [
@@ -45,9 +46,14 @@ def scrub_pii(text: str) -> str:
     """Redact emails, SSN-shaped digits, and phone numbers from text."""
     if not text:
         return text
+    was_truncated = len(text) > _MAX_SCRUB_TEXT_LEN
+    if was_truncated:
+        text = text[:_MAX_SCRUB_TEXT_LEN]
     text = _EMAIL_RE.sub("[REDACTED_EMAIL]", text)
     text = _SSN_RE.sub("[REDACTED_SSN]", text)
     text = _PHONE_RE.sub("[REDACTED_PHONE]", text)
+    if was_truncated:
+        text += " [TRUNCATED_FOR_SAFETY]"
     return text
 
 

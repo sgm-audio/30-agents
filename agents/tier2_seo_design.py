@@ -14,6 +14,7 @@ import structlog
 from agents.base import BaseAgent, extract_json
 from core.config import settings
 from core.graph import AgentState
+from core.safety import validate_public_http_url
 
 log = structlog.get_logger(__name__)
 
@@ -166,8 +167,12 @@ Be specific — reference actual sites, actual hex codes, actual fonts.
             await asyncio.sleep(0.3)
 
         target_analysis = {}
+        safe_target_url = None
         if target_url and target_url not in ("none", ""):
-            scraped = _firecrawl_scrape(target_url)
+            safe_target_url = validate_public_http_url(target_url)
+            if not safe_target_url:
+                return self.error_result(f"Blocked unsafe URL: {target_url}")
+            scraped = _firecrawl_scrape(safe_target_url)
             if scraped:
                 target_analysis = {
                     "title": scraped.get("title", ""),
@@ -257,6 +262,9 @@ Return a scored audit with specific line-by-line recommendations.
 
         if not target_url or target_url == "none":
             return self.error_result("No URL provided. Pass url in context.")
+        target_url = validate_public_http_url(target_url)
+        if not target_url:
+            return self.error_result("Blocked unsafe URL.")
 
         scraped = _firecrawl_scrape(target_url, extract_links=True)
         links = scraped.get("links", []) or []
@@ -348,6 +356,9 @@ Return: score out of 100 + specific prioritized fixes
 
         if not target_url or target_url == "none":
             return self.error_result("No URL provided.")
+        target_url = validate_public_http_url(target_url)
+        if not target_url:
+            return self.error_result("Blocked unsafe URL.")
 
         checks = {}
 

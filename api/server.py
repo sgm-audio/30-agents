@@ -529,8 +529,9 @@ async def send_emails(req: SendRequest):
                     results.append({**em, "send_status": "sent"})
                 else:
                     results.append({**em, "send_status": f"error_{resp.status_code}", "error": resp.text})
-        except Exception as e:
-            results.append({**em, "send_status": "exception", "error": str(e)})
+        except Exception:
+            log.exception("outreach.send_email_failed", to_email=em.get("to_email"))
+            results.append({**em, "send_status": "exception", "error": "Failed to send email"})
 
     sent = sum(1 for r in results if r["send_status"] == "sent")
     skipped = sum(1 for r in results if "skipped" in r["send_status"])
@@ -1613,4 +1614,3 @@ async def root():
 def _get_ui_html() -> str:
     ui_path = Path(__file__).parent / "ui" / "index.html"
     return ui_path.read_text(encoding="utf-8")
-

@@ -2,22 +2,21 @@
 Tool: File operations (read, write, list)
 Restricted to workspace directory for safety.
 """
-import os
 from pathlib import Path
+
+from core.safety import WORKSPACE_ROOT, resolve_workspace_path
 
 # All file operations are restricted to this workspace
 # Set WORKSPACE_OVERRIDE env var to bypass (for testing)
-WORKSPACE = Path(os.environ.get("WORKSPACE_OVERRIDE", Path(__file__).parent.parent / "data" / "workspace"))
+WORKSPACE = WORKSPACE_ROOT
 WORKSPACE.mkdir(parents=True, exist_ok=True)
 
 
 def _validate_path(filepath: str) -> tuple[Path | None, str | None]:
     """Validate that filepath is within the workspace. Returns (path, error)."""
-    path = Path(filepath).resolve()
+    path = resolve_workspace_path(filepath)
     workspace = WORKSPACE.resolve()
-    try:
-        path.relative_to(workspace)
-    except ValueError:
+    if path is None:
         return None, f"Access denied: {filepath} is outside workspace {workspace}"
     return path, None
 

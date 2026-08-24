@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import base64
 import json
-from pathlib import Path
 from typing import Any
 
 import structlog
@@ -16,6 +15,7 @@ from core.config import settings
 from core.graph import AgentState
 from core.memory import get_memory
 from core.ollama_client import get_ollama
+from core.safety import resolve_workspace_path, validate_public_http_url
 
 log = structlog.get_logger(__name__)
 
@@ -59,18 +59,22 @@ class VisionAnalystAgent(BaseAgent):
         ollama = get_ollama()
 
         if not image_b64 and image_path:
-            p = Path(image_path)
-            if p.exists():
+            p = resolve_workspace_path(image_path)
+            if p and p.exists():
                 image_b64 = base64.b64encode(p.read_bytes()).decode()
             else:
                 analysis = f"Image file not found: {image_path}"
                 return {"result": analysis, "next_agent": "END"}
 
         if not image_b64 and image_url:
+            safe_image_url = validate_public_http_url(image_url)
+            if not safe_image_url:
+                analysis = "Blocked unsafe image URL."
+                return {"result": analysis, "next_agent": "END"}
             try:
                 import httpx
                 async with httpx.AsyncClient(timeout=30.0) as client:
-                    resp = await client.get(image_url)
+                    resp = await client.get(safe_image_url)
                     resp.raise_for_status()
                     image_b64 = base64.b64encode(resp.content).decode()
             except Exception as e:
@@ -318,8 +322,8 @@ reason from the task description and any file metadata provided."""
         audio_path = context.get("audio_path", "") or context.get("file_path", "")
         file_info = ""
         if audio_path:
-            p = Path(audio_path)
-            if p.exists() and p.is_file():
+            p = resolve_workspace_path(audio_path)
+            if p and p.exists() and p.is_file():
                 size_kb = p.stat().st_size / 1024
                 file_info = f"\n\nAudio file: {p.name} ({p.suffix or 'no extension'}, {size_kb:.1f} KB)"
             else:

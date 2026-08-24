@@ -13,6 +13,7 @@ from agents.base import BaseAgent
 from core.config import settings
 from core.graph import AgentState
 from core.memory import get_memory
+from core.safety import resolve_workspace_path, validate_public_http_url
 
 log = structlog.get_logger(__name__)
 
@@ -46,16 +47,22 @@ for the user's query. Be concise and cite specific details."""
         task = state["task"]
         context = state.get("context", {})
         url = context.get("url", "")
+        safe_url = None
 
         if url:
-            try:
-                async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                    headers = {"User-Agent": "Mozilla/5.0 (research bot)"}
-                    resp = await client.get(url, headers=headers)
-                    resp.raise_for_status()
-                    md_content = html2text(resp.text)[:4000]
-            except Exception as e:
-                md_content = f"Failed to fetch {url}: {e}"
+            safe_url = validate_public_http_url(url)
+            if not safe_url:
+                md_content = f"Blocked unsafe URL: {url}"
+            else:
+                try:
+                    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                        headers = {"User-Agent": "Mozilla/5.0 (research bot)"}
+                        resp = await client.get(safe_url, headers=headers)
+                        resp.raise_for_status()
+                        md_content = html2text(resp.text)[:4000]
+                except Exception:
+                    log.exception("research_agent_fetch_failed", url=safe_url)
+                    md_content = f"Failed to fetch {safe_url}"
         else:
             md_content = f"[No URL provided. Would search for: {task}]"
 
@@ -64,7 +71,7 @@ for the user's query. Be concise and cite specific details."""
         )
 
         # Store in memory
-        await self.remember(summary, metadata={"source": url, "task": task})
+        await self.remember(summary, metadata={"source": (safe_url or "") if url else "", "task": task})
 
         new_context = dict(context)
         new_context["research_result"] = summary
@@ -96,9 +103,10 @@ actionable insights. Format your output clearly."""
 
         content = ""
         if filepath:
-            from pathlib import Path
-            path = Path(filepath)
-            if not path.exists():
+            path = resolve_workspace_path(filepath)
+            if path is None:
+                content = f"Access denied for file path: {filepath}"
+            elif not path.exists():
                 content = f"File not found: {filepath}"
             elif path.suffix.lower() == ".pdf":
                 try:
