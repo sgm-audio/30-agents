@@ -14,12 +14,19 @@ WORKSPACE_ROOT = Path(os.environ.get("WORKSPACE_OVERRIDE", _DEFAULT_WORKSPACE)).
 
 def resolve_workspace_path(user_path: str) -> Path | None:
     """Resolve a user-provided path and require it to stay within WORKSPACE_ROOT."""
+    if not isinstance(user_path, str):
+        return None
+
+    user_path = user_path.strip()
     if not user_path:
+        return None
+    if "\x00" in user_path:
         return None
 
     candidate = Path(user_path)
-    if not candidate.is_absolute():
-        candidate = WORKSPACE_ROOT / candidate
+    if candidate.is_absolute():
+        return None
+    candidate = WORKSPACE_ROOT / candidate
 
     try:
         resolved = candidate.resolve()
