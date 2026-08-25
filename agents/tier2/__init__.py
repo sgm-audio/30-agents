@@ -102,33 +102,39 @@ actionable insights. Format your output clearly."""
         filepath = context.get("filepath", "")
 
         content = ""
-        if filepath:
-            path = resolve_workspace_path(filepath)
-            if path is None:
+        if isinstance(filepath, str) and filepath.strip():
+            filepath = filepath.strip()
+            if "\x00" in filepath:
                 content = f"Access denied for file path: {filepath}"
-            elif not path.exists():
-                content = f"File not found: {filepath}"
-            elif path.suffix.lower() == ".pdf":
-                try:
-                    from pypdf import PdfReader
-                    reader = PdfReader(str(path))
-                    content = "\n".join(page.extract_text() or "" for page in reader.pages)
-                    content = content[:8000]
-                except Exception as e:
-                    content = f"PDF read error: {e}"
-            elif path.suffix.lower() in (".docx", ".doc"):
-                try:
-                    from docx import Document
-                    doc = Document(str(path))
-                    content = "\n".join(p.text for p in doc.paragraphs)
-                    content = content[:8000]
-                except Exception as e:
-                    content = f"DOCX read error: {e}"
             else:
-                try:
-                    content = path.read_text(encoding="utf-8", errors="replace")[:8000]
-                except Exception as e:
-                    content = f"Read error: {e}"
+                path = resolve_workspace_path(filepath)
+                if path is None:
+                    content = f"Access denied for file path: {filepath}"
+                elif path.suffix.lower() not in (".pdf", ".docx", ".doc", ".txt"):
+                    content = f"Unsupported file type for path: {filepath}"
+                elif not path.exists():
+                    content = f"File not found: {filepath}"
+                elif path.suffix.lower() == ".pdf":
+                    try:
+                        from pypdf import PdfReader
+                        reader = PdfReader(str(path))
+                        content = "\n".join(page.extract_text() or "" for page in reader.pages)
+                        content = content[:8000]
+                    except Exception as e:
+                        content = f"PDF read error: {e}"
+                elif path.suffix.lower() in (".docx", ".doc"):
+                    try:
+                        from docx import Document
+                        doc = Document(str(path))
+                        content = "\n".join(p.text for p in doc.paragraphs)
+                        content = content[:8000]
+                    except Exception as e:
+                        content = f"DOCX read error: {e}"
+                else:
+                    try:
+                        content = path.read_text(encoding="utf-8", errors="replace")[:8000]
+                    except Exception as e:
+                        content = f"Read error: {e}"
         else:
             content = f"[No filepath provided for task: {task}]"
 
