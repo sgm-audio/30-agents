@@ -6,6 +6,7 @@ import json
 import time
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 import httpx
 import structlog
@@ -18,6 +19,31 @@ CONFIG_PATH = Path(__file__).parent.parent / "config" / "discord_webhook.json"
 GREEN = 3066993
 RED = 15158332
 ORANGE = 15105570
+
+
+_ALLOWED_DISCORD_WEBHOOK_HOSTS = {
+    "discord.com",
+    "canary.discord.com",
+    "ptb.discord.com",
+    "discordapp.com",
+}
+
+
+def _validate_discord_webhook_url(url: str) -> str | None:
+    safe_url = validate_public_http_url(url)
+    if not safe_url:
+        return None
+
+    parsed = urlparse(safe_url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https":
+        return None
+    if host not in _ALLOWED_DISCORD_WEBHOOK_HOSTS:
+        return None
+    if not parsed.path.startswith("/api/webhooks/"):
+        return None
+
+    return safe_url
 
 
 def _load_config() -> dict:
@@ -61,7 +87,7 @@ async def send_discord(
     if not url:
         log.debug("discord.webhook_not_configured")
         return False
-    safe_url = validate_public_http_url(url)
+    safe_url = _validate_discord_webhook_url(url)
     if not safe_url:
         log.warning("discord.webhook_unsafe_url")
         return False
