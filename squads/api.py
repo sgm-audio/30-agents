@@ -15,6 +15,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from core.graph import AgentState
+from core.safety import validate_public_http_url
 from squads import ALL_SQUADS
 from squads.base import SquadLeader
 from squads.registry import get_squad_config, create_squad_leader
@@ -148,7 +149,10 @@ async def run_squad(squad_name: str, req: SquadRunRequest):
     if req.max_leads:
         initial_context["max_leads"] = req.max_leads
     if req.url:
-        initial_context["url"] = req.url
+        safe_url = validate_public_http_url(req.url)
+        if not safe_url:
+            raise HTTPException(status_code=400, detail="Unsafe or invalid URL")
+        initial_context["url"] = safe_url
 
     state: AgentState = {
         "messages": [],
