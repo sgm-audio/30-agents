@@ -59,26 +59,40 @@ def validate_public_http_url(url: str) -> str | None:
         return None
     if parsed.username or parsed.password:
         return None
-
-    try:
-        addrinfos = socket.getaddrinfo(parsed.hostname, None)
-    except socket.gaierror:
+    if parsed.query or parsed.fragment:
         return None
 
-    for info in addrinfos:
-        ip_text = info[4][0]
+    # Restrict explicit ports to standard HTTP(S) only.
+    try:
+        port = parsed.port
+    except ValueError:
+        return None
+    if port is not None and port not in (80, 443):
+        return None
+
+    hostname = parsed.hostname.strip().rstrip(".")
+    if not hostname:
+        return None
+
+    # If hostname is an IP literal, validate it directly.
+    try:
+        host_ip = ipaddress.ip_address(hostname)
+        if not host_ip.is_global:
+            return None
+    except ValueError:
+        # Not an IP literal; resolve and require all answers to be globally routable.
         try:
-            ip = ipaddress.ip_address(ip_text)
-        except ValueError:
+            addrinfos = socket.getaddrinfo(hostname, None)
+        except socket.gaierror:
             return None
-        if (
-            ip.is_private
-            or ip.is_loopback
-            or ip.is_link_local
-            or ip.is_multicast
-            or ip.is_reserved
-            or ip.is_unspecified
-        ):
-            return None
+
+        for info in addrinfos:
+            ip_text = info[4][0]
+            try:
+                ip = ipaddress.ip_address(ip_text)
+            except ValueError:
+                return None
+            if not ip.is_global:
+                return None
 
     return candidate
