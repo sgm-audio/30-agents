@@ -329,15 +329,23 @@ reason from the task description and any file metadata provided."""
         task = state["task"]
         context = state.get("context", {})
 
-        audio_path = context.get("audio_path", "") or context.get("file_path", "")
+        raw_audio_path = context.get("audio_path", "") or context.get("file_path", "")
         file_info = ""
-        if audio_path:
-            p = resolve_workspace_path(audio_path)
-            if p and p.exists() and p.is_file():
-                size_kb = p.stat().st_size / 1024
-                file_info = f"\n\nAudio file: {p.name} ({p.suffix or 'no extension'}, {size_kb:.1f} KB)"
+        if raw_audio_path:
+            safe_audio_path = resolve_workspace_path(raw_audio_path)
+            if safe_audio_path and safe_audio_path.exists() and safe_audio_path.is_file():
+                size_kb = safe_audio_path.stat().st_size / 1024
+                file_info = (
+                    f"\n\nAudio file: {safe_audio_path.name} "
+                    f"({safe_audio_path.suffix or 'no extension'}, {size_kb:.1f} KB)"
+                )
+            elif safe_audio_path is None:
+                file_info = "\n\nNote: audio file path is invalid or outside workspace."
             else:
-                file_info = f"\n\nNote: audio file not found at {audio_path} (reasoning from task description only)."
+                file_info = (
+                    f"\n\nNote: audio file not found at {safe_audio_path.name} "
+                    "(reasoning from task description only)."
+                )
 
         analysis = await self.llm(f"{task}{file_info}")
 
