@@ -2,12 +2,13 @@
 Tool: File operations (read, write, list)
 Restricted to workspace directory for safety.
 """
-import os
 from pathlib import Path
+
+from core.safety import WORKSPACE_ROOT, resolve_workspace_path
 
 # All file operations are restricted to this workspace
 # Set WORKSPACE_OVERRIDE env var to bypass (for testing)
-WORKSPACE = Path(os.environ.get("WORKSPACE_OVERRIDE", Path(__file__).parent.parent / "data" / "workspace"))
+WORKSPACE = WORKSPACE_ROOT
 WORKSPACE.mkdir(parents=True, exist_ok=True)
 
 

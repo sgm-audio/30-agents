@@ -15,6 +15,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from core.graph import AgentState
+from core.safety import WORKSPACE_ROOT, resolve_workspace_path, validate_public_http_url
 from squads import ALL_SQUADS
 from squads.base import SquadLeader
 from squads.registry import get_squad_config, create_squad_leader
@@ -143,12 +144,25 @@ async def run_squad(squad_name: str, req: SquadRunRequest):
     session_id = req.session_id or str(uuid.uuid4())
 
     initial_context = dict(req.context or {})
+    for path_key in ("audio_path", "file_path"):
+        if path_key in initial_context and initial_context[path_key] is not None:
+            raw_path = initial_context[path_key]
+            if not isinstance(raw_path, str):
+                raise HTTPException(status_code=400, detail=f"Invalid {path_key}: must be a string")
+            resolved_path = resolve_workspace_path(raw_path)
+            if not resolved_path:
+                raise HTTPException(status_code=400, detail=f"Invalid or unsafe {path_key}")
+            initial_context[path_key] = str(resolved_path.relative_to(WORKSPACE_ROOT))
+
     if req.city:
         initial_context["city"] = req.city
     if req.max_leads:
         initial_context["max_leads"] = req.max_leads
     if req.url:
-        initial_context["url"] = req.url
+        safe_url = validate_public_http_url(req.url)
+        if not safe_url:
+            raise HTTPException(status_code=400, detail="Unsafe or invalid URL")
+        initial_context["url"] = safe_url
 
     state: AgentState = {
         "messages": [],

@@ -47,6 +47,7 @@ for the user's query. Be concise and cite specific details."""
         task = state["task"]
         context = state.get("context", {})
         url = context.get("url", "")
+        safe_url = None
 
         if url:
             try:
@@ -70,7 +71,7 @@ for the user's query. Be concise and cite specific details."""
         )
 
         # Store in memory
-        await self.remember(summary, metadata={"source": url, "task": task})
+        await self.remember(summary, metadata={"source": (safe_url or "") if url else "", "task": task})
 
         new_context = dict(context)
         new_context["research_result"] = summary

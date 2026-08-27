@@ -11,6 +11,8 @@ from urllib.parse import urlparse
 import httpx
 import structlog
 
+from core.safety import validate_public_http_url
+
 log = structlog.get_logger(__name__)
 
 CONFIG_PATH = Path(__file__).parent.parent / "config" / "discord_webhook.json"
@@ -38,6 +40,31 @@ def is_allowed_webhook_url(url: str) -> bool:
     if parsed.scheme != "https":
         return False
     return (parsed.hostname or "").lower() in _DISCORD_WEBHOOK_HOSTS
+
+
+_ALLOWED_DISCORD_WEBHOOK_HOSTS = {
+    "discord.com",
+    "canary.discord.com",
+    "ptb.discord.com",
+    "discordapp.com",
+}
+
+
+def _validate_discord_webhook_url(url: str) -> str | None:
+    safe_url = validate_public_http_url(url)
+    if not safe_url:
+        return None
+
+    parsed = urlparse(safe_url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https":
+        return None
+    if host not in _ALLOWED_DISCORD_WEBHOOK_HOSTS:
+        return None
+    if not parsed.path.startswith("/api/webhooks/"):
+        return None
+
+    return safe_url
 
 
 def _load_config() -> dict:
@@ -81,6 +108,10 @@ async def send_discord(
     if not url:
         log.debug("discord.webhook_not_configured")
         return False
+    safe_url = _validate_discord_webhook_url(url)
+    if not safe_url:
+        log.warning("discord.webhook_unsafe_url")
+        return False
 
     if not is_allowed_webhook_url(url):
         log.warning("discord.webhook_url_rejected")
@@ -100,7 +131,7 @@ async def send_discord(
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(url, json=payload)
+            resp = await client.post(safe_url, json=payload)
             if resp.status_code in (200, 204):
                 log.info("discord.notification_sent", title=embed_title)
                 return True

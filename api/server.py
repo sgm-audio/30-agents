@@ -29,6 +29,7 @@ from core.logging_setup import setup_logging
 from core.ollama_client import get_ollama
 from core.redis_client import get_redis
 from squads.api import router as squads_router
+from core.safety import validate_public_http_url
 
 from core.autopilot_scheduler import get_autopilot_scheduler
 from core.discord_webhook import (
@@ -666,13 +667,16 @@ async def seo_analyze(req: SEOAnalyzeRequest):
 
     if not req.url:
         raise HTTPException(status_code=400, detail="URL required")
+    safe_url = validate_public_http_url(req.url)
+    if not safe_url:
+        raise HTTPException(status_code=400, detail="Unsafe or invalid URL")
 
-    context_base = {"url": req.url, "keyword": req.keyword}
+    context_base = {"url": safe_url, "keyword": req.keyword}
 
     async def run_agent(AgentClass, session_suffix: str):
         state: AgentState = {
             "messages": [], "next_agent": "orchestrator",
-            "task": f"Analyze {req.url}",
+            "task": f"Analyze {safe_url}",
             "context": dict(context_base),
             "result": None, "error": None, "retries": 0,
             "session_id": f"seo-{session_suffix}", "user_id": "outreach", "agent_path": [],
@@ -692,7 +696,7 @@ async def seo_analyze(req: SEOAnalyzeRequest):
     overall = (onpage_score + technical_score + content_score) / 3
 
     return {
-        "url": req.url,
+        "url": safe_url,
         "keyword": req.keyword,
         "overall_score": round(overall, 1),
         "on_page_seo": {"score": onpage_score, "audit": onpage.get("result", "")},
@@ -708,11 +712,14 @@ async def find_backlinks(req: BacklinkRequest):
 
     if not req.url:
         raise HTTPException(status_code=400, detail="URL required")
+    safe_url = validate_public_http_url(req.url)
+    if not safe_url:
+        raise HTTPException(status_code=400, detail="Unsafe or invalid URL")
 
     state: AgentState = {
         "messages": [], "next_agent": "orchestrator",
-        "task": f"Find backlink opportunities for {req.url}",
-        "context": {"url": req.url, "keyword": req.keyword, "industry": req.industry, "city": req.city},
+        "task": f"Find backlink opportunities for {safe_url}",
+        "context": {"url": safe_url, "keyword": req.keyword, "industry": req.industry, "city": req.city},
         "result": None, "error": None, "retries": 0,
         "session_id": "backlink", "user_id": "outreach", "agent_path": [],
     }
@@ -722,7 +729,7 @@ async def find_backlinks(req: BacklinkRequest):
     summary = result.get("context", {}).get("backlink_summary", {})
 
     return {
-        "url": req.url,
+        "url": safe_url,
         "opportunities": opportunities,
         "summary": summary,
         "total": len(opportunities),
@@ -735,10 +742,16 @@ async def design_concept(req: DesignConceptRequest):
     from agents.tier2_seo_design import WebDesignConceptAgent
     from core.graph import AgentState
 
+    safe_url = ""
+    if req.url:
+        safe_url = validate_public_http_url(req.url) or ""
+        if not safe_url:
+            raise HTTPException(status_code=400, detail="Unsafe or invalid URL")
+
     state: AgentState = {
         "messages": [], "next_agent": "orchestrator",
         "task": f"Research design trends for {req.industry} businesses",
-        "context": {"url": req.url, "industry": req.industry, "city": req.city},
+        "context": {"url": safe_url, "industry": req.industry, "city": req.city},
         "result": None, "error": None, "retries": 0,
         "session_id": "design-concept", "user_id": "outreach", "agent_path": [],
     }
@@ -748,7 +761,7 @@ async def design_concept(req: DesignConceptRequest):
     trend_sources = result.get("context", {}).get("trend_sources", [])
 
     return {
-        "url": req.url,
+        "url": safe_url,
         "industry": req.industry,
         "city": req.city,
         "design_concept": design_concept,
@@ -764,13 +777,16 @@ async def seo_pipeline(url: str, keyword: str = "", industry: str = ""):
 
     if not url:
         raise HTTPException(status_code=400, detail="URL required")
+    safe_url = validate_public_http_url(url)
+    if not safe_url:
+        raise HTTPException(status_code=400, detail="Unsafe or invalid URL")
 
-    context = {"url": url, "keyword": keyword, "industry": industry}
+    context = {"url": safe_url, "keyword": keyword, "industry": industry}
 
     async def run_agent(AgentClass, session_suffix: str):
         state: AgentState = {
             "messages": [], "next_agent": "orchestrator",
-            "task": f"Analyze {url}",
+            "task": f"Analyze {safe_url}",
             "context": dict(context),
             "result": None, "error": None, "retries": 0,
             "session_id": f"seo-pipeline-{session_suffix}", "user_id": "outreach", "agent_path": [],
@@ -792,7 +808,7 @@ async def seo_pipeline(url: str, keyword: str = "", industry: str = ""):
     overall = (onpage_score + technical_score + content_score) / 3
 
     return {
-        "url": url,
+        "url": safe_url,
         "keyword": keyword,
         "overall_seo_score": round(overall, 1),
         "on_page_seo": {"score": onpage_score},
@@ -1614,4 +1630,3 @@ async def root():
 def _get_ui_html() -> str:
     ui_path = Path(__file__).parent / "ui" / "index.html"
     return ui_path.read_text(encoding="utf-8")
-

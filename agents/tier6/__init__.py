@@ -68,10 +68,14 @@ class VisionAnalystAgent(BaseAgent):
             if p.exists():
                 image_b64 = base64.b64encode(p.read_bytes()).decode()
             else:
-                analysis = f"Image file not found: {image_path}"
+                analysis = f"Image file not found or unsupported type: {image_path}"
                 return {"result": analysis, "next_agent": "END"}
 
         if not image_b64 and image_url:
+            safe_image_url = validate_public_http_url(image_url)
+            if not safe_image_url:
+                analysis = "Blocked unsafe image URL."
+                return {"result": analysis, "next_agent": "END"}
             try:
                 safe_image_url = validate_public_http_url(image_url)
             except ValueError as e:
@@ -325,7 +329,7 @@ reason from the task description and any file metadata provided."""
         task = state["task"]
         context = state.get("context", {})
 
-        audio_path = context.get("audio_path", "") or context.get("file_path", "")
+        raw_audio_path = context.get("audio_path", "") or context.get("file_path", "")
         file_info = ""
         if audio_path:
             try:
