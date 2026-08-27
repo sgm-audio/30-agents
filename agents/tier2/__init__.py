@@ -112,8 +112,12 @@ actionable insights. Format your output clearly."""
                     content = f"Access denied for file path: {filepath}"
                 elif path.suffix.lower() not in (".pdf", ".docx", ".doc", ".txt"):
                     content = f"Unsupported file type for path: {filepath}"
+                elif path.is_symlink():
+                    content = f"Access denied for file path: {filepath}"
                 elif not path.exists():
                     content = f"File not found: {filepath}"
+                elif not path.is_file():
+                    content = f"Unsupported file type for path: {filepath}"
                 elif path.suffix.lower() == ".pdf":
                     try:
                         from pypdf import PdfReader
