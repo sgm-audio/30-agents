@@ -13,12 +13,21 @@ WORKSPACE.mkdir(parents=True, exist_ok=True)
 
 
 def _validate_path(filepath: str) -> tuple[Path | None, str | None]:
-    """Validate that filepath is within the workspace. Returns (path, error)."""
-    path = resolve_workspace_path(filepath)
-    workspace = WORKSPACE.resolve()
-    if path is None:
-        return None, f"Access denied: {filepath} is outside workspace {workspace}"
-    return path, None
+    """Validate that filepath resolves inside the workspace. Returns (path, error).
+
+    Relative paths are anchored to the workspace; symlinks/junctions are
+    resolved before the containment check so `..` traversal and link escapes
+    are blocked.
+    """
+    base = os.path.normcase(os.path.realpath(str(WORKSPACE)))
+    if os.path.isabs(filepath):
+        candidate = filepath
+    else:
+        candidate = os.path.join(base, filepath)
+    fullpath = os.path.normcase(os.path.realpath(candidate))
+    if fullpath != base and not fullpath.startswith(base + os.sep):
+        return None, f"Access denied: {filepath} is outside workspace {base}"
+    return Path(fullpath), None
 
 
 def read_file(filepath: str, max_chars: int = 8000) -> str:

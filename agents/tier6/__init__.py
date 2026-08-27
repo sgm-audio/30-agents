@@ -15,7 +15,7 @@ from core.config import settings
 from core.graph import AgentState
 from core.memory import get_memory
 from core.ollama_client import get_ollama
-from core.safety import resolve_workspace_path, validate_public_http_url
+from core.validation import resolve_allowed_path, validate_public_http_url
 
 log = structlog.get_logger(__name__)
 
@@ -59,18 +59,13 @@ class VisionAnalystAgent(BaseAgent):
         ollama = get_ollama()
 
         if not image_b64 and image_path:
-            safe_exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff"}
-            if (
-                not isinstance(image_path, str)
-                or not image_path.strip()
-                or "\x00" in image_path
-                or image_path.startswith(("/", "\\"))
-            ):
-                analysis = "Blocked unsafe image path."
+            try:
+                p = resolve_allowed_path(image_path)
+            except ValueError:
+                log.warning("vision_analyst.path_blocked", image_path=image_path)
+                analysis = f"Image path not allowed (outside allowed roots): {image_path}"
                 return {"result": analysis, "next_agent": "END"}
-
-            p = resolve_workspace_path(image_path)
-            if p and p.is_file() and p.suffix.lower() in safe_exts:
+            if p.exists():
                 image_b64 = base64.b64encode(p.read_bytes()).decode()
             else:
                 analysis = f"Image file not found or unsupported type: {image_path}"
@@ -80,6 +75,11 @@ class VisionAnalystAgent(BaseAgent):
             safe_image_url = validate_public_http_url(image_url)
             if not safe_image_url:
                 analysis = "Blocked unsafe image URL."
+                return {"result": analysis, "next_agent": "END"}
+            try:
+                safe_image_url = validate_public_http_url(image_url)
+            except ValueError as e:
+                analysis = f"Image URL blocked: {e}"
                 return {"result": analysis, "next_agent": "END"}
             try:
                 import httpx
@@ -331,21 +331,17 @@ reason from the task description and any file metadata provided."""
 
         raw_audio_path = context.get("audio_path", "") or context.get("file_path", "")
         file_info = ""
-        if raw_audio_path:
-            safe_audio_path = resolve_workspace_path(raw_audio_path)
-            if safe_audio_path and safe_audio_path.exists() and safe_audio_path.is_file():
-                size_kb = safe_audio_path.stat().st_size / 1024
-                file_info = (
-                    f"\n\nAudio file: {safe_audio_path.name} "
-                    f"({safe_audio_path.suffix or 'no extension'}, {size_kb:.1f} KB)"
-                )
-            elif safe_audio_path is None:
-                file_info = "\n\nNote: audio file path is invalid or outside workspace."
+        if audio_path:
+            try:
+                p = resolve_allowed_path(audio_path)
+            except ValueError:
+                log.warning("audio_analyst.path_blocked", audio_path=audio_path)
+                p = None
+            if p is not None and p.exists() and p.is_file():
+                size_kb = p.stat().st_size / 1024
+                file_info = f"\n\nAudio file: {p.name} ({p.suffix or 'no extension'}, {size_kb:.1f} KB)"
             else:
-                file_info = (
-                    f"\n\nNote: audio file not found at {safe_audio_path.name} "
-                    "(reasoning from task description only)."
-                )
+                file_info = f"\n\nNote: audio file not found or not accessible at {audio_path} (reasoning from task description only)."
 
         analysis = await self.llm(f"{task}{file_info}")
 

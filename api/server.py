@@ -530,9 +530,9 @@ async def send_emails(req: SendRequest):
                     results.append({**em, "send_status": "sent"})
                 else:
                     results.append({**em, "send_status": f"error_{resp.status_code}", "error": resp.text})
-        except Exception:
-            log.exception("outreach.send_email_failed", to_email=em.get("to_email"))
-            results.append({**em, "send_status": "exception", "error": "Failed to send email"})
+        except Exception as e:
+            log.error("outreach.send_exception", to=em.get("to_email"), error_type=type(e).__name__)
+            results.append({**em, "send_status": "exception", "error": "send failed (see server log)"})
 
     sent = sum(1 for r in results if r["send_status"] == "sent")
     skipped = sum(1 for r in results if "skipped" in r["send_status"])

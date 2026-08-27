@@ -20,6 +20,27 @@ GREEN = 3066993
 RED = 15158332
 ORANGE = 15105570
 
+# SSRF guard: webhook payloads may only be POSTed to Discord's own domains.
+_DISCORD_WEBHOOK_HOSTS = frozenset({
+    "discord.com",
+    "discordapp.com",
+    "canary.discord.com",
+    "ptb.discord.com",
+    "canary.discordapp.com",
+    "ptb.discordapp.com",
+})
+
+
+def is_allowed_webhook_url(url: str) -> bool:
+    """Allowlist check: the webhook URL must be https on a Discord domain."""
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False
+    if parsed.scheme != "https":
+        return False
+    return (parsed.hostname or "").lower() in _DISCORD_WEBHOOK_HOSTS
+
 
 _ALLOWED_DISCORD_WEBHOOK_HOSTS = {
     "discord.com",
@@ -90,6 +111,10 @@ async def send_discord(
     safe_url = _validate_discord_webhook_url(url)
     if not safe_url:
         log.warning("discord.webhook_unsafe_url")
+        return False
+
+    if not is_allowed_webhook_url(url):
+        log.warning("discord.webhook_url_rejected")
         return False
 
     payload = {
