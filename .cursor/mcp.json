@@ -3,10 +3,13 @@
     "30agents": {
       "type": "stdio",
       "command": "python",
-      "args": ["${workspaceFolder}/tools/mcp_bridge.py"],
+      "args": ["${workspaceFolder}/tools/mcp_hub.py"],
       "env": {
         "AGENTS30_API_BASE": "http://127.0.0.1:8000",
-        "AGENTS30_TIMEOUT": "180"
+        "AGENTS30_TIMEOUT": "180",
+        "AGENTS30_API_SECRET": "CHANGE_ME",
+        "AGENTS30_AUTO_START": "1",
+        "AGENTS30_AUTO_STOP": "0"
       }
     }
   }

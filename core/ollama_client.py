@@ -29,7 +29,7 @@ class OllamaClient:
     async def health(self) -> bool:
         """Return True if Ollama is reachable."""
         try:
-            r = await self._client.get("/")
+            r = await self._client.get("/", timeout=5.0)
             return r.status_code == 200
         except Exception as e:
             log.debug("ollama.health.error", error=str(e))
@@ -46,12 +46,18 @@ class OllamaClient:
         log.error("ollama.timeout", max_wait=max_wait)
         return False
 
+    async def _ensure_reachable(self) -> None:
+        """Fast-fail when Ollama is down instead of retrying ~60s per call."""
+        if not await self.health():
+            raise RuntimeError(f"Ollama unreachable at {self.host}")
+
     @retry(
         retry=retry_if_exception_type((httpx.HTTPError, httpx.ConnectError)),
         wait=wait_exponential(multiplier=1, min=2, max=30),
         stop=stop_after_attempt(5),
     )
     async def list_models(self) -> list[str]:
+        await self._ensure_reachable()
         r = await self._client.get("/api/tags")
         r.raise_for_status()
         data = r.json()
@@ -84,6 +90,7 @@ class OllamaClient:
         if system:
             payload["system"] = system
 
+        await self._ensure_reachable()
         r = await self._client.post("/api/generate", json=payload)
         r.raise_for_status()
         return r.json().get("response", "")
@@ -106,6 +113,7 @@ class OllamaClient:
             "stream": stream,
             "options": options or {},
         }
+        await self._ensure_reachable()
         r = await self._client.post("/api/chat", json=payload)
         r.raise_for_status()
         return r.json().get("message", {}).get("content", "")
@@ -116,6 +124,7 @@ class OllamaClient:
         stop=stop_after_attempt(5),
     )
     async def embed(self, model: str, text: str) -> list[float]:
+        await self._ensure_reachable()
         payload = {"model": model, "input": text}
         r = await self._client.post("/api/embed", json=payload)
         r.raise_for_status()
