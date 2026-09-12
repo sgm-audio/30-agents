@@ -190,6 +190,7 @@ class HealthResponse(BaseModel):
     redis: bool
     models: list[str]
     agents_registered: int
+    llm_backend: str = "ollama"
 
 
 # ──────────────────────────────────────────────
@@ -215,6 +216,7 @@ async def health():
         redis=redis_ok,
         models=models,
         agents_registered=len(get_agent_info()),
+        llm_backend=settings.llm_backend,
     )
 
 

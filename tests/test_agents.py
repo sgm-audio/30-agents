@@ -191,6 +191,7 @@ class TestMemory:
             return [(h >> (i * 4)) % 256 / 256.0 for i in range(384)]
 
         monkeypatch.setattr("core.ollama_client.OllamaClient.embed", mock_embed)
+        monkeypatch.setattr("core.ollama_client.NimClient.embed", mock_embed)
 
         # Use a temp directory for this test
         import chromadb
@@ -209,3 +210,22 @@ class TestMemory:
         results = await mem.search("sky color", n_results=1, namespace="test")
         # Results may be empty with fake embeddings but no error
         assert isinstance(results, list)
+
+
+# ──────────────────────────────────────────────
+# Tests: LLM backend selection
+# ──────────────────────────────────────────────
+class TestLlmBackend:
+    def test_get_ollama_selects_backend(self, monkeypatch):
+        """get_ollama() returns NimClient when llm_backend='nim', else OllamaClient."""
+        import core.ollama_client as oc
+
+        monkeypatch.setattr(oc.settings, "llm_backend", "nim")
+        monkeypatch.setattr(oc, "_llm", None)
+        assert isinstance(oc.get_ollama(), oc.NimClient)
+
+        monkeypatch.setattr(oc.settings, "llm_backend", "ollama")
+        monkeypatch.setattr(oc, "_llm", None)
+        assert isinstance(oc.get_ollama(), oc.OllamaClient)
+
+        monkeypatch.setattr(oc, "_llm", None)
