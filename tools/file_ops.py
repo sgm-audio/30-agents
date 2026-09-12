@@ -2,6 +2,7 @@
 Tool: File operations (read, write, list)
 Restricted to workspace directory for safety.
 """
+import os
 from pathlib import Path
 
 from core.safety import WORKSPACE_ROOT, resolve_workspace_path
