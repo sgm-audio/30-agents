@@ -95,10 +95,13 @@ All config lives in `.env` → `core/config.py` → `settings` singleton.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `MODEL_FAST` | `hf.co/evalengine/unbound-e2b-gguf:Q4_K_M` | Used by most agents |
-| `MODEL_REASON` | `huihui_ai/gemma-4-abliterated:e4b-q4_K` | Heavy reasoning agents |
-| `MODEL_VISION` | `minicpm-v:8b` | Vision/multimodal |
-| `MODEL_EMBED` | `nomic-embed-text` | ChromaDB embeddings |
+| `LLM_BACKEND` | `nim` | `nim` (NVIDIA NIM, OpenAI-compatible) or `ollama` (local). `get_ollama()` dispatches on this. |
+| `NVIDIA_API_KEY` / `NIM_API_KEY` | *(unset)* | Required when `LLM_BACKEND=nim` |
+| `NIM_BASE_URL` | `https://integrate.api.nvidia.com/v1` | NIM endpoint |
+| `MODEL_FAST` | `nvidia/nemotron-3.5-lightning-30b-a3b` (nim) / `hf.co/evalengine/unbound-e2b-gguf:Q4_K_M` (ollama) | Used by most agents |
+| `MODEL_REASON` | `nvidia/nemotron-3-ultra-550b-a55b` (nim) / `huihui_ai/gemma-4-abliterated:e4b-q4_K` (ollama) | Heavy reasoning agents |
+| `MODEL_VISION` | `meta/llama-3.2-11b-vision-instruct` (nim) / `minicpm-v:8b` (ollama) | Vision/multimodal |
+| `MODEL_EMBED` | `nvidia/nemotron-3-embed-1b` (nim) / `nomic-embed-text` (ollama) | ChromaDB embeddings |
 | `AGENT_TIMEOUT` | `120` | Seconds per task (504 on breach) |
 | `API_SECRET` | *(unset)* | If set, required as `X-API-Key` on HTTP/WebSocket |
 | `AGENT_ALLOWED_PATHS` | *(unset)* | os.pathsep-separated extra file-read roots for agents (default: project root, cwd, user home) — enforced by `core/validation.py` |

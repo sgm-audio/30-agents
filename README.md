@@ -1,12 +1,12 @@
 # 30 Agents — Local-First AI Pipelines You Own
 
-**The business case in one line:** stop renting agency-grade outreach, SEO, and content pipelines by the token — run them on your own hardware at **$0 marginal inference cost**, with a routing trace you can put in front of a client.
+**The business case in one line:** stop renting agency-grade outreach, SEO, and content pipelines by the token — run them under **your** orchestration, on **your** hardware if you want (local Ollama mode = $0 marginal inference cost), with a routing trace you can put in front of a client.
 
 ---
 
 ## The Expensive Problem This Solves
 
-If you bill for lead-gen, SEO, or content, you're currently paying cloud-API margin on every run and re-assembling the same pipeline by hand for every client. That is **revenue leakage** twice over: once to the model provider, once to unbillable setup time. This system turns the pipeline into an owned asset — lead discovery → email enrichment → personalized outreach → SEO audit → report — executed by 40 local specialist agents with a per-run audit trail and a cost report that reads $0.
+If you bill for lead-gen, SEO, or content, you're currently paying cloud-API margin on every run and re-assembling the same pipeline by hand for every client. That is **revenue leakage** twice over: once to the model provider, once to unbillable setup time. This system turns the pipeline into an owned asset — lead discovery → email enrichment → personalized outreach → SEO audit → report — executed by 40 local specialist agents with a per-run audit trail and a cost report. Want zero marginal inference cost? Set `LLM_BACKEND=ollama` and the whole system runs on your hardware.
 
 ---
 
@@ -42,11 +42,11 @@ flowchart TD
 
     ORCH -->|"state.result set"| DONE(["Run complete · agent_path trace"])
 
-    AGENTS -.-> OLLAMA["Ollama · local GGUF<br/>fast / reason / vision"]
+    AGENTS -.-> LLM["LLM backend (pluggable)<br/>NVIDIA NIM · default<br/>or Ollama · local GGUF"]
     AGENTS -.-> REDIS[("Redis · sessions + metrics")]
     AGENTS -.-> CHROMA[("ChromaDB · vector memory")]
 
-    style OLLAMA fill:#2ecc71,color:#000
+    style LLM fill:#2ecc71,color:#000
     style DONE fill:#2ecc71,color:#000
 ```
 
@@ -67,14 +67,14 @@ Every specialist returns a typed partial `AgentState`; setting `result` terminat
 **Architecture Sandbox — roadmap nodes being hardened next:**
 
 - Human-in-the-loop approval tools (12-factor factor 7) — designed, not wired
-- Optional NVIDIA NIM acceleration path behind the existing client interface
+- Per-agent backend override (heavy reasoning → NIM, cheap routing → local Ollama)
 - Additional squad configs via the JSON registry (no code changes required)
 
 ---
 
 ## Deployment ROI
 
-Deploying this architecture gives a client an owned, auditable outreach + SEO + content pipeline that runs locally at zero marginal inference cost — the first campaign it runs is pipeline they would otherwise have paid cloud margin and setup hours to produce.
+Deploying this architecture gives a client an owned, auditable outreach + SEO + content pipeline they control — with an optional one-line switch (`LLM_BACKEND=ollama`) to run inference on their own hardware at zero marginal cost — so the first campaign it runs is pipeline they would otherwise have paid cloud margin and setup hours to produce.
 
 ---
 
@@ -85,15 +85,15 @@ Deploying this architecture gives a client an owned, auditable outreach + SEO + 
 **macOS / Linux** — `./start` (venv + Redis + Ollama + API), then open http://127.0.0.1:8000/.
 
 ```bash
-python main.py health                        # Ollama + Redis + ChromaDB
+python main.py health                        # LLM backend + Redis + ChromaDB
 python main.py chat "your task"              # one-shot orchestrated run
 python main.py outreach --city Vancouver     # dry-run outreach pipeline
 pytest                                       # test suite
 ```
 
-**Docs:** [PRD](docs/PRD.md) · [ADR-001 — local-first inference](docs/ADR-001.md) · [AGENTS.md](AGENTS.md) (operator manual) · [Windows smoke checklist](docs/WINDOWS_SMOKE.md)
+**Docs:** [PRD](docs/PRD.md) · [ADR-001 — pluggable inference](docs/ADR-001.md) · [AGENTS.md](AGENTS.md) (operator manual) · [Windows smoke checklist](docs/WINDOWS_SMOKE.md)
 
-**Prerequisites for full LLM calls:** Ollama (local models) + Redis (auto-started by `./start`) + embedded ChromaDB. Without Ollama the API still runs; health reports `degraded`.
+**LLM backend:** default is **NVIDIA NIM** (`LLM_BACKEND=nim`, needs `NVIDIA_API_KEY`/`NIM_API_KEY`). For fully local, key-free inference set `LLM_BACKEND=ollama` and run Ollama — health then reports the active backend. Without either the API still runs; health reports `degraded`.
 
 **Optional outreach keys** (`.env`): `SERPER_API_KEY`, `TAVILY_API_KEY`, `FIRECRAWL_API_KEY`, `HUNTER_API_KEY`, `RESEND_API_KEY`, `OUTREACH_EMAIL_FROM`, `OUTREACH_DOMAIN`.
 

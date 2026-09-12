@@ -14,12 +14,19 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 
 class Settings(BaseModel):
-    # Ollama
+    # LLM backend: "nim" (NVIDIA NIM, OpenAI-compatible) or "ollama" (local)
+    llm_backend: str = "nim"
+    nim_api_key: Optional[str] = None
+    nim_base_url: str = "https://integrate.api.nvidia.com/v1"
+
+    # Ollama (local) — only used when llm_backend == "ollama"
     ollama_host: str = "http://127.0.0.1:11435"
-    model_fast: str = "hf.co/evalengine/unbound-e2b-gguf:Q4_K_M"
-    model_reason: str = "huihui_ai/gemma-4-abliterated:e4b-q4_K"
-    model_vision: str = "minicpm-v:8b"
-    model_embed: str = "nomic-embed-text"
+
+    # Model names. When llm_backend == "nim" these are NVIDIA NIM model IDs.
+    model_fast: str = "nvidia/nemotron-3.5-lightning-30b-a3b"
+    model_reason: str = "nvidia/nemotron-3-ultra-550b-a55b"
+    model_vision: str = "meta/llama-3.2-11b-vision-instruct"
+    model_embed: str = "nvidia/nemotron-3-embed-1b"
 
     # Redis
     redis_host: str = "127.0.0.1"
@@ -73,11 +80,14 @@ class Settings(BaseModel):
     @classmethod
     def from_env(cls) -> "Settings":
         return cls(
+            llm_backend=os.getenv("LLM_BACKEND", "nim"),
+            nim_api_key=os.getenv("NVIDIA_API_KEY") or os.getenv("NIM_API_KEY"),
+            nim_base_url=os.getenv("NIM_BASE_URL", "https://integrate.api.nvidia.com/v1"),
             ollama_host=os.getenv("OLLAMA_HOST", "http://127.0.0.1:11435"),
-            model_fast=os.getenv("MODEL_FAST", "hf.co/evalengine/unbound-e2b-gguf:Q4_K_M"),
-            model_reason=os.getenv("MODEL_REASON", "huihui_ai/gemma-4-abliterated:e4b-q4_K"),
-            model_vision=os.getenv("MODEL_VISION", "minicpm-v:8b"),
-            model_embed=os.getenv("MODEL_EMBED", "nomic-embed-text"),
+            model_fast=os.getenv("MODEL_FAST", "nvidia/nemotron-3.5-lightning-30b-a3b"),
+            model_reason=os.getenv("MODEL_REASON", "nvidia/nemotron-3-ultra-550b-a55b"),
+            model_vision=os.getenv("MODEL_VISION", "meta/llama-3.2-11b-vision-instruct"),
+            model_embed=os.getenv("MODEL_EMBED", "nvidia/nemotron-3-embed-1b"),
             redis_host=os.getenv("REDIS_HOST", "127.0.0.1"),
             redis_port=int(os.getenv("REDIS_PORT", "6379")),
             redis_db=int(os.getenv("REDIS_DB", "0")),

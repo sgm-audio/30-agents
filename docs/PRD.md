@@ -47,7 +47,7 @@ A **local, fully self-hosted multi-agent orchestration system**: LangGraph state
 
 ## 5. Technical Constraints
 
-- **No cloud inference dependency.** All agent LLM calls route to local Ollama (`MODEL_FAST` / `MODEL_REASON` / `MODEL_VISION`); NVIDIA NIM (`NimClient`) is an optional OpenAI-compatible accelerator, not a requirement.
+- **Pluggable inference, one interface.** All agent LLM calls go through `get_ollama()`, which dispatches on `LLM_BACKEND`: `ollama` → local quantized GGUF (zero marginal cost, no data egress); `nim` → NVIDIA NIM (OpenAI-compatible, higher quality, paid). Default is `nim`; `ollama` is the no-cloud-key mode. `MODEL_FAST` / `MODEL_REASON` / `MODEL_VISION` resolve against the active backend.
 - **Local-first state.** Redis for sessions/metrics (`session:*`, `workflow:*`, `agent:metrics:*`), ChromaDB embedded → `data/chroma/`.
 - **Single-writer graph.** `get_graph()` is a module-level singleton; `register_all_agents()` must run exactly once before `graph.run()` (server does it in FastAPI `lifespan`).
 - **Security gate.** Tool calls pass a whitelist + blocked-arg pattern check; webhook URLs allowlisted to HTTPS Discord domains; PII scrubbed (`core/security_gate.py`, `core/validation.py`).
