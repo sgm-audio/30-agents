@@ -190,7 +190,14 @@ python main.py outreach --city Vancouver --max-leads 100 --send
 
 ## MCP Bridge — Expose Agents as MCP Tools
 
-The in-repo bridge (`tools/mcp_bridge.py`) implements the Model Context Protocol over stdio. It proxies MCP `tools/list` and `tools/call` requests to the 30-agent REST API (`localhost:8000`).
+Two stdio bridges expose the REST API as MCP tools:
+
+- **`tools/mcp_bridge.py`** — minimal, stdlib-only, tested (`tests/test_mcp_bridge.py`).
+- **`tools/mcp_hub.py`** — same 14 tools, plus auto-start/auto-stop of the API server and `AGENTS30_API_SECRET` auth passthrough.
+
+Both proxy MCP `tools/list` and `tools/call` to `localhost:8000`.
+
+> **API_SECRET is required.** The API middleware fails closed: with no `API_SECRET` in `.env`, every endpoint except `/api/health` returns `503`. Create `.env` with `API_SECRET=<value>` (see Config table) and set the same value as `AGENTS30_API_SECRET` in each client's MCP config.
 
 ### Cursor wiring
 
@@ -225,7 +232,18 @@ Project MCP config is committed at `.cursor/mcp.json`. Open this repo in Cursor,
 }
 ```
 
-No separate daemon is needed — the MCP client spawns the bridge process automatically on startup. The 30-agent server must be running on `localhost:8000`.
+No separate daemon is needed — the MCP client spawns the bridge process automatically on startup. The 30-agent server must be running on `localhost:8000` (or set `AGENTS30_AUTO_START=1` and `mcp_hub.py` starts it for you).
+
+### mcp_hub.py — auto-start variant
+
+`mcp_hub.py` auto-starts `python main.py serve` if the API is unreachable, and passes `AGENTS30_API_SECRET` as `X-API-Key` on every call. Platform install targets (these hold the real secret, so keep them out of git):
+
+| Client | Config location | Secret key |
+|---|---|---|
+| Cursor | project `.cursor/mcp.json` (committed template, `CHANGE_ME`) | `env.AGENTS30_API_SECRET` |
+| OpenCode | `~/.config/opencode/opencode.jsonc` → `mcp.30agents` | `env` |
+| Codex | `~/.codex/config.toml` → `[mcp_servers.30agents]` | `[mcp_servers.30agents.env]` |
+| Claude Desktop | `%APPDATA%\Claude\claude_desktop_config.json` | `env` |
 
 ### Exposed Tools
 
