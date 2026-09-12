@@ -1,152 +1,100 @@
-# 30 Agents
+# 30 Agents — Local-First AI Pipelines You Own
 
-A fully self-hosted, multi-agent orchestration system. **LangGraph + FastAPI + Ollama** — no cloud API keys. Forty specialist agents across six tiers (plus outreach/SEO/audio extensions), composable into **squads** (pipeline workflows), exposed through a REST/WebSocket API, a Typer CLI, a Windows desktop launcher, and an in-repo **MCP stdio bridge** so Cursor/OpenCode can call the same endpoints as tools.
+**The business case in one line:** stop renting agency-grade outreach, SEO, and content pipelines by the token — run them on your own hardware at **$0 marginal inference cost**, with a routing trace you can put in front of a client.
 
-- **Local inference** via Ollama — nothing leaves your machine
-- **Explicit routing** — agents return `next_agent`; the orchestrator routes; `result` ends the run
-- **Pipelines as squads** — Outreach, SEO, Analytics, Content, Code, Vision
-- **Memory & sessions** — ChromaDB for vector memory, Redis for session/workflow state
-- **Trigger from anywhere** — HTTP, CLI, WebSocket, MCP, Windows double-click
+---
+
+## The Expensive Problem This Solves
+
+If you bill for lead-gen, SEO, or content, you're currently paying cloud-API margin on every run and re-assembling the same pipeline by hand for every client. That is **revenue leakage** twice over: once to the model provider, once to unbillable setup time. This system turns the pipeline into an owned asset — lead discovery → email enrichment → personalized outreach → SEO audit → report — executed by 40 local specialist agents with a per-run audit trail and a cost report that reads $0.
+
+---
+
+## Architecture Graph
+
+Mapped from the live knowledge graph (1,197 nodes · 2,486 edges). God nodes by connectivity: `AgentState` (124), `BaseAgent` (68), `Redis` (54+23), `SquadLeader` (26).
+
+```mermaid
+flowchart TD
+    subgraph Entry["Trigger from anywhere"]
+        UI["Chat UI :8000"]
+        CLI["Typer CLI"]
+        MCP["MCP bridge · Cursor/OpenCode"]
+        REST["REST / WebSocket"]
+    end
+
+    Entry --> API["FastAPI server · fail-closed auth"]
+    API --> ORCH["OrchestratorAgent<br/>NL → JSON routing decision"]
+
+    subgraph Graph["LangGraph state machine · START → orchestrator → specialist → orchestrator"]
+        ORCH -->|"next_agent"| AGENTS["40 agents · 6 tiers<br/>web · docs · code · writer · data · vision"]
+        AGENTS --> ORCH
+        ORCH --> SQUAD["SquadLeader ×6"]
+        subgraph Squads["Pre-wired pipelines"]
+            SQUAD --> OUT["@OutreachSquad<br/>lead_scout → email_finder → outreach_writer"]
+            SQUAD --> SEO["@SEOSquad<br/>3 parallel audits → backlinks → design"]
+            SQUAD --> CODE["@CodeSquad<br/>write → review loop → bug hunt → test"]
+        end
+        OUT --> ORCH
+        SEO --> ORCH
+        CODE --> ORCH
+    end
+
+    ORCH -->|"state.result set"| DONE(["Run complete · agent_path trace"])
+
+    AGENTS -.-> OLLAMA["Ollama · local GGUF<br/>fast / reason / vision"]
+    AGENTS -.-> REDIS[("Redis · sessions + metrics")]
+    AGENTS -.-> CHROMA[("ChromaDB · vector memory")]
+
+    style OLLAMA fill:#2ecc71,color:#000
+    style DONE fill:#2ecc71,color:#000
+```
+
+Every specialist returns a typed partial `AgentState`; setting `result` terminates the run. Full routing trace (`agent_path`) is injected automatically — you can show a client exactly which agents touched their job.
+
+---
+
+## R&D Status: Production Core, Actively Extending
+
+**Production-ready and tested** (pytest, `asyncio_mode=auto`):
+
+- Orchestrated routing over 40 agents with retry (tenacity, exp. backoff), per-agent Redis metrics, and consistent error routing
+- **Fail-closed security** — HTTP middleware refuses all but `/api/health` with 503 when `API_SECRET` is unset; tool-call whitelist + blocked-arg patterns; PII scrubbing; Discord-webhook URL allowlist
+- Full **outreach pipeline** (scrape → enrich → generate → send via Resend, dry-run by default) and **SEO pipeline** (on-page + technical + content in parallel, then backlinks)
+- Sessions and long-term memory (Redis + embedded ChromaDB), KPI/cost reporting, Discord notifications, autopilot scheduler
+- MCP stdio bridge (incl. auto-start hub) exposing 14 tools to Cursor / OpenCode / Claude Desktop
+
+**Architecture Sandbox — roadmap nodes being hardened next:**
+
+- Human-in-the-loop approval tools (12-factor factor 7) — designed, not wired
+- Optional NVIDIA NIM acceleration path behind the existing client interface
+- Additional squad configs via the JSON registry (no code changes required)
+
+---
+
+## Deployment ROI
+
+Deploying this architecture gives a client an owned, auditable outreach + SEO + content pipeline that runs locally at zero marginal inference cost — the first campaign it runs is pipeline they would otherwise have paid cloud margin and setup hours to produce.
 
 ---
 
 ## Quick start
 
-**Windows** — double-click `Start-Agents.bat` (first run creates the venv and installs deps). Open http://127.0.0.1:8000/.
+**Windows** — double-click `Start-Agents.bat` (first run creates the venv + installs deps), then open http://127.0.0.1:8000/. `Stop-Agents.bat` shuts it down.
 
-**macOS / Linux**
-
-```bash
-./start            # venv + Redis + API server, in the background
-./start --fg       # foreground
-./start --status   # health only
-./start --stop     # stop the background server
-```
-
-Then open http://127.0.0.1:8000/ (chat UI) or http://localhost:8000/docs (OpenAPI).
-
-> Optional (recommended for real inference): install [Ollama](https://ollama.com) and pull a model. Without it the API still boots and reports `"degraded"` health.
-
-### Requirements
-
-- Python 3.12+
-- Redis (system `redis-server`, Docker, or Podman — `./start` starts it for you)
-- Ollama (optional; required for LLM inference)
-- ChromaDB (embedded; auto-persists to `data/chroma/`)
-
----
-
-## Usage
-
-### CLI
+**macOS / Linux** — `./start` (venv + Redis + Ollama + API), then open http://127.0.0.1:8000/.
 
 ```bash
-python main.py health             # Ollama + Redis + ChromaDB status
-python main.py agents             # list registered agents
-python main.py chat "your task"   # one-shot task
-python main.py serve --reload     # dev server with hot reload
-python main.py squads             # list squads
-python main.py squad run code     # run a squad pipeline
+python main.py health                        # Ollama + Redis + ChromaDB
+python main.py chat "your task"              # one-shot orchestrated run
+python main.py outreach --city Vancouver     # dry-run outreach pipeline
+pytest                                       # test suite
 ```
 
-### REST API
+**Docs:** [PRD](docs/PRD.md) · [ADR-001 — local-first inference](docs/ADR-001.md) · [AGENTS.md](AGENTS.md) (operator manual) · [Windows smoke checklist](docs/WINDOWS_SMOKE.md)
 
-```bash
-curl http://localhost:8000/api/health
-curl http://localhost:8000/api/agents
+**Prerequisites for full LLM calls:** Ollama (local models) + Redis (auto-started by `./start`) + embedded ChromaDB. Without Ollama the API still runs; health reports `degraded`.
 
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"task": "Your task here", "session_id": "my-session"}'
-```
+**Optional outreach keys** (`.env`): `SERPER_API_KEY`, `TAVILY_API_KEY`, `FIRECRAWL_API_KEY`, `HUNTER_API_KEY`, `RESEND_API_KEY`, `OUTREACH_EMAIL_FROM`, `OUTREACH_DOMAIN`.
 
-Full endpoint surface: `/api/chat`, `/api/outreach/*`, `/api/seo/*`, `/api/squads/*`, `/api/webhook/*`, `/api/autopilots/*`, plus WebSocket streaming at `/ws/{session_id}`.
-
-### WebSocket (streaming)
-
-```javascript
-const ws = new WebSocket('ws://localhost:8000/ws/my-session');
-ws.send(JSON.stringify({ task: "Analyze this data" }));
-ws.onmessage = (e) => console.log(JSON.parse(e.data));
-```
-
----
-
-## The agent tiers
-
-| Tier | Role | Agents |
-|------|------|--------|
-| 1 — Core infrastructure | `orchestrator`, `memory_manager`, `context_tracker`, `tool_dispatcher`, `state_machine` |
-| 2 — Research & knowledge | `web_researcher`, `doc_reader`, `knowledge_synthesizer`, `fact_verifier`, `knowledge_base`, `semantic_searcher` |
-| 3 — Code & engineering | `code_writer`, `code_reviewer`, `bug_hunter`, `system_architect`, `test_engineer` |
-| 4 — Content & creative | `writer`, `summarizer`, `translator`, `editor`, `content_strategist` |
-| 5 — Reasoning & analysis | `data_analyst`, `logic_engine`, `planner`, `critic`, `decision_engine`, `methodology_advisor` |
-| 6 — Multimodal | `vision_analyst`, `embedding_engine`, `multimodal_synthesizer`, `media_coordinator`, `audio_analyst` |
-
-Plus domain extensions: outreach (`lead_scout`, `email_finder`, `outreach_writer`) and SEO/design (`on_page_seo`, `technical_seo`, `content_seo`, `backlink_agent`, `web_design_concept`).
-
-## Squads
-
-A **squad** is a group of specialists led by a **squad leader** that routes work to members and compiles a final report — addressable as a unit (`@OutreachSquad`) instead of individual agents.
-
-| Squad | Pipeline |
-|-------|----------|
-| `@OutreachSquad` | lead_scout → email_finder → outreach_writer |
-| `@SEOSquad` | parallel audits → backlinks → design |
-| `@AnalyticsSquad` | analyze → plan → critique → decide |
-| `@ContentSquad` | write → edit → [summarize\|translate] → strategize |
-| `@CodeSquad` | write → review (loop) → bug hunt → architect → test |
-| `@VisionSquad` | analyze → embed → synthesize → coordinate |
-
-## MCP bridge
-
-`tools/mcp_bridge.py` exposes the REST API as MCP tools over stdio. Wire it into Cursor (`.cursor/mcp.json`) or OpenCode:
-
-```jsonc
-{
-  "mcp": {
-    "30agents": {
-      "type": "local",
-      "command": ["python", "tools/mcp_bridge.py"],
-      "enabled": true
-    }
-  }
-}
-```
-
-The server must be running on `localhost:8000`.
-
----
-
-## Configuration
-
-All config lives in `.env` → `core/config.py` → `settings` singleton.
-
-| Variable | Default | Notes |
-|---|---|---|
-| `MODEL_FAST` | `hf.co/evalengine/unbound-e2b-gguf:Q4_K_M` | Used by most agents |
-| `MODEL_REASON` | `huihui_ai/gemma-4-abliterated:e4b-q4_K` | Heavy reasoning agents |
-| `MODEL_VISION` | `minicpm-v:8b` | Vision/multimodal |
-| `MODEL_EMBED` | `nomic-embed-text` | ChromaDB embeddings |
-| `AGENT_TIMEOUT` | `120` | Seconds per task (504 on breach) |
-
-## Development
-
-```bash
-pip install -r requirements.txt
-pytest
-```
-
-## Methodology
-
-The `methodology/` folder contains the **12-factor agent** methodology, a third-party work by [humanlayer](https://github.com/humanlayer/12-factor-agents), distributed under the **Apache License 2.0**. See [`methodology/README.md`](methodology/README.md) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for attribution and license terms.
-
-## Documentation
-
-- [`AGENTS.md`](AGENTS.md) — developer guide and architecture notes
-- [`docs/WINDOWS_SMOKE.md`](docs/WINDOWS_SMOKE.md) — smoke checklist
-- [`methodology/`](methodology/) — 12-factor agent methodology (third-party)
-
-## License
-
-Apache License 2.0. See [`LICENSE`](LICENSE). Third-party content is documented in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+**License:** see [LICENSE](LICENSE). Third-party notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
