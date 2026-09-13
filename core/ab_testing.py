@@ -4,13 +4,11 @@ Provides ABTest, VariantAssigner, ResultsTracker, and ABAnalyzer.
 """
 import hashlib
 import math
-import random
 import time
 import uuid
 from typing import Any, Optional
 
 import structlog
-from core.config import settings
 from core.redis_client import get_redis
 
 log = structlog.get_logger(__name__)
@@ -67,7 +65,6 @@ class VariantAssigner:
         self.redis = get_redis()
 
     def assign(self, lead_id: str, test_id: str, variants: list[str], weights: Optional[list[float]] = None) -> str:
-        assignment_key = f"abtest:{test_id}:assignments"
         hash_val = int(hashlib.md5(f"{test_id}:{lead_id}".encode()).hexdigest(), 16)
 
         if not weights:

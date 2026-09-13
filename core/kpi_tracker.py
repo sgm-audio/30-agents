@@ -6,7 +6,6 @@ import time
 from typing import Any, Optional
 
 import structlog
-from core.config import settings
 from core.redis_client import get_redis
 
 log = structlog.get_logger(__name__)

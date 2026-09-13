@@ -8,7 +8,6 @@ import uuid
 from typing import Any, Optional
 
 import structlog
-from core.config import settings
 from core.redis_client import get_redis
 
 log = structlog.get_logger(__name__)
@@ -114,12 +113,10 @@ class LeadScorer:
 
         if lead.get("website_url") or lead.get("website"):
             breakdown["has_website"] = 0
-            breakdown["no_website_bonus"] = 30
-            score += 30
         else:
             breakdown["has_website"] = 0
-            breakdown["no_website_bonus"] = 30
-            score += 30
+        breakdown["no_website_bonus"] = 30
+        score += 30
 
         if lead.get("phone"):
             breakdown["has_phone"] = 20

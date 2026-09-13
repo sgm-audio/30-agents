@@ -3,32 +3,16 @@ Report generation: weekly digest, monthly report, agent cost report.
 Generates structured reports for Discord and API consumption.
 """
 import time
-from typing import Any, Optional
+from typing import Optional
 import structlog
-from core.config import settings
 from core.redis_client import get_redis
+from core.kpi_tracker import KPITracker
 
 log = structlog.get_logger(__name__)
 
 
 class ReportGenerator:
-    """Base report generator with format support."""
-
-    def _format_output(self, data: dict, fmt: str = "json") -> Any:
-        if fmt == "json":
-            return data
-        if fmt == "markdown":
-            return self._to_markdown(data)
-        return data
-
-    def _to_markdown(self, data: dict) -> str:
-        lines = [f"# {data.get('title', 'Report')}", "", f"Generated: {data.get('generated_at', '')}", ""]
-        for section in data.get("sections", []):
-            lines.append(f"## {section['title']}")
-            for item in section.get("items", []):
-                lines.append(f"- **{item['label']}**: {item['value']}")
-            lines.append("")
-        return "\n".join(lines)
+    """Shared Discord formatting for generated reports."""
 
     def _to_discord_embed(self, data: dict) -> list[dict]:
         embeds = []
@@ -298,7 +282,7 @@ class AgentCostReport(ReportGenerator):
         self.redis = get_redis()
 
     async def estimate_cost(self) -> dict:
-        kpi = KPITracker()
+            kpi = KPITracker()
         total = await kpi.get_current("agent_executions_total") or 0
         avg_dur = await kpi.get_current("agent_avg_duration") or 0
         compute_hours = round(total * avg_dur / 3600, 1) if avg_dur else 0
@@ -321,12 +305,3 @@ class AgentCostReport(ReportGenerator):
         return report
 
 
-class KPITracker:
-    """Minimal inline KPI reader (delegates to core.kpi_tracker)."""
-
-    def __init__(self):
-        self.redis = get_redis()
-
-    async def get_current(self, name: str) -> Optional[float]:
-        from core.kpi_tracker import KPITracker as KPI
-        return await KPI().get_current(name)
