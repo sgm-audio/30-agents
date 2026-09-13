@@ -77,7 +77,7 @@
     min-height: 0;
   }
   @media (min-width: 960px) {
-    main { grid-template-columns: 280px minmax(0, 1fr); }
+    main { grid-template-columns: 320px minmax(0, 1fr); }
   }
 
   aside {
@@ -95,6 +95,17 @@
     color: var(--muted);
     margin-bottom: 0.75rem;
   }
+  .group {
+    margin-bottom: 1rem;
+  }
+  .group-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+    padding-left: 0.25rem;
+  }
   .action {
     width: 100%;
     text-align: left;
@@ -102,8 +113,8 @@
     border: 1px solid var(--line);
     color: var(--ink);
     border-radius: 10px;
-    padding: 0.85rem 0.95rem;
-    margin-bottom: 0.55rem;
+    padding: 0.75rem 0.9rem;
+    margin-bottom: 0.4rem;
     cursor: pointer;
     font: inherit;
     transition: border-color 0.15s, background 0.15s, transform 0.15s;
@@ -113,8 +124,22 @@
     background: color-mix(in srgb, var(--accent) 8%, transparent);
     transform: translateY(-1px);
   }
-  .action strong { display: block; font-size: 0.92rem; margin-bottom: 0.2rem; }
-  .action small { color: var(--muted); font-size: 0.78rem; line-height: 1.35; }
+  .action strong { display: block; font-size: 0.88rem; margin-bottom: 0.15rem; }
+  .action small { color: var(--muted); font-size: 0.75rem; line-height: 1.3; }
+  .action.skeleton {
+    pointer-events: none;
+    opacity: 0.5;
+    background: linear-gradient(90deg, var(--bg1) 25%, var(--line) 50%, var(--bg1) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  .squads-section {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+  }
 
   .chat {
     display: flex;
@@ -244,28 +269,18 @@
     <span class="pill" id="pill-api">API…</span>
     <span class="pill" id="pill-redis">Redis…</span>
     <span class="pill" id="pill-ollama">Ollama…</span>
+    <span class="pill" id="pill-backend">Backend…</span>
   </div>
 </header>
 
 <main>
-  <aside>
-    <h2>Do this</h2>
-    <button class="action" data-task="Find 20 Vancouver restaurants that don't have a website yet">
-      <strong>Find leads</strong>
-      <small>Local businesses without websites</small>
-    </button>
-    <button class="action" data-task="Run an SEO audit on https://example.com and summarize the top fixes">
-      <strong>SEO audit</strong>
-      <small>On-page, technical, content</small>
-    </button>
-    <button class="action" data-task="Write a short cold email offering a modern website redesign to a local cafe">
-      <strong>Write outreach</strong>
-      <small>Personalized cold email draft</small>
-    </button>
-    <button class="action" data-task="Review this project structure and suggest the highest-impact next improvement">
-      <strong>Improve this repo</strong>
-      <small>Code + architecture advice</small>
-    </button>
+  <aside id="sidebar">
+    <h2>Agents</h2>
+    <div id="agent-groups"></div>
+    <div class="squads-section">
+      <h2>Squads</h2>
+      <div id="squad-cards"></div>
+    </div>
   </aside>
 
   <section class="chat">
@@ -291,6 +306,233 @@
 </footer>
 
 <script>
+// ──────────────────────────────────────────────
+// DataLoader — fetch + transform (pure where possible)
+// ──────────────────────────────────────────────
+const DataLoader = (function() {
+  const CACHE_TTL = 5 * 60 * 1000; // 5 min
+  const CACHE_KEY = 'agents_squads_cache';
+
+  function getCached() {
+    try {
+      const raw = sessionStorage.getItem(CACHE_KEY);
+      if (!raw) return null;
+      const { ts, data } = JSON.parse(raw);
+      if (Date.now() - ts > CACHE_TTL) return null;
+      return data;
+    } catch { return null; }
+  }
+
+  function setCache(data) {
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+    } catch {}
+  }
+
+  async function fetchJson(url) {
+    const res = await fetch(url);
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    if (res.status === 503) throw new Error('DEGRADED');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  // Pure function: Agent[] → Record<string, Agent[]>
+  function groupAgents(agents) {
+    const groups = {
+      'Orchestration': [],
+      'Research & Knowledge': [],
+      'Code & Engineering': [],
+      'Writing & Content': [],
+      'Analysis & Decisions': [],
+      'Vision & Media': [],
+      'Outreach Pipeline': [],
+      'SEO & Design': [],
+      'Other': []
+    };
+
+    const nameToGroup = {
+      // Orchestration
+      'orchestrator': 'Orchestration',
+      'memory_manager': 'Orchestration',
+      'context_tracker': 'Orchestration',
+      'tool_dispatcher': 'Orchestration',
+      'state_machine': 'Orchestration',
+      // Research & Knowledge
+      'web_researcher': 'Research & Knowledge',
+      'doc_reader': 'Research & Knowledge',
+      'knowledge_synthesizer': 'Research & Knowledge',
+      'fact_verifier': 'Research & Knowledge',
+      'knowledge_base': 'Research & Knowledge',
+      'semantic_searcher': 'Research & Knowledge',
+      // Code & Engineering
+      'code_writer': 'Code & Engineering',
+      'code_reviewer': 'Code & Engineering',
+      'bug_hunter': 'Code & Engineering',
+      'system_architect': 'Code & Engineering',
+      'test_engineer': 'Code & Engineering',
+      // Writing & Content
+      'writer': 'Writing & Content',
+      'summarizer': 'Writing & Content',
+      'translator': 'Writing & Content',
+      'editor': 'Writing & Content',
+      'content_strategist': 'Writing & Content',
+      // Analysis & Decisions
+      'data_analyst': 'Analysis & Decisions',
+      'logic_engine': 'Analysis & Decisions',
+      'planner': 'Analysis & Decisions',
+      'critic': 'Analysis & Decisions',
+      'decision_engine': 'Analysis & Decisions',
+      'methodology_advisor': 'Analysis & Decisions',
+      // Vision & Media
+      'vision_analyst': 'Vision & Media',
+      'embedding_engine': 'Vision & Media',
+      'multimodal_synthesizer': 'Vision & Media',
+      'media_coordinator': 'Vision & Media',
+      'audio_analyst': 'Vision & Media',
+      // Outreach Pipeline
+      'lead_scout': 'Outreach Pipeline',
+      'email_finder': 'Outreach Pipeline',
+      'outreach_writer': 'Outreach Pipeline',
+      // SEO & Design
+      'web_design_concept': 'SEO & Design',
+      'on_page_seo': 'SEO & Design',
+      'technical_seo': 'SEO & Design',
+      'content_seo': 'SEO & Design',
+      'backlink_agent': 'SEO & Design',
+    };
+
+    for (const a of agents) {
+      const group = nameToGroup[a.name] || 'Other';
+      groups[group].push(a);
+    }
+
+    // Remove empty groups
+    return Object.fromEntries(Object.entries(groups).filter(([, v]) => v.length > 0));
+  }
+
+  async function loadAll() {
+    const cached = getCached();
+    if (cached) return cached;
+
+    const [agents, squads] = await Promise.all([
+      fetchJson('/api/agents'),
+      fetchJson('/api/squads')
+    ]);
+
+    const data = { agents, squads, groups: groupAgents(agents) };
+    setCache(data);
+    return data;
+  }
+
+  return { loadAll, groupAgents };
+})();
+
+// ──────────────────────────────────────────────
+// Renderer — DOM construction only
+// ──────────────────────────────────────────────
+const Renderer = (function() {
+  function skeletonAction() {
+    const btn = document.createElement('button');
+    btn.className = 'action skeleton';
+    btn.innerHTML = '<strong>    </strong><br><small>       </small>';
+    return btn;
+  }
+
+  function makeAction(agent) {
+    const btn = document.createElement('button');
+    btn.className = 'action';
+    btn.dataset.task = agent.name; // clicking agent name → sendTask(agent.name)
+    btn.innerHTML = `<strong>${agent.name.replace(/_/g, ' ')}</strong><small>${agent.description || 'No description'}</small>`;
+    return btn;
+  }
+
+  function makeSquadCard(squad) {
+    const btn = document.createElement('button');
+    btn.className = 'action';
+    // Squad task template — user can edit before sending
+    const defaultTask = squad.config?.default_task || `Run the ${squad.display_name || squad.name} squad`;
+    btn.dataset.task = defaultTask;
+    btn.innerHTML = `<strong>${squad.display_name || squad.name}</strong><small>${squad.description || squad.config?.description || 'Pipeline workflow'}</small>`;
+    return btn;
+  }
+
+  function renderGroups(groups, container) {
+    container.innerHTML = '';
+    for (const [groupName, agents] of Object.entries(groups)) {
+      const section = document.createElement('div');
+      section.className = 'group';
+      const label = document.createElement('div');
+      label.className = 'group-label';
+      label.textContent = groupName;
+      section.appendChild(label);
+      for (const agent of agents) {
+        section.appendChild(makeAction(agent));
+      }
+      container.appendChild(section);
+    }
+    // Empty state
+    if (Object.keys(groups).length === 0) {
+      const msg = document.createElement('div');
+      msg.className = 'action';
+      msg.style.opacity = '0.6';
+      msg.textContent = 'No agents loaded — check API health';
+      container.appendChild(msg);
+    }
+  }
+
+  function renderSquads(squads, container) {
+    container.innerHTML = '';
+    const list = squads || Object.values(window.ALL_SQUADS || {});
+    for (const squad of list) {
+      container.appendChild(makeSquadCard(squad));
+    }
+    if (!list.length) {
+      const msg = document.createElement('div');
+      msg.className = 'action';
+      msg.style.opacity = '0.6';
+      msg.textContent = 'No squads loaded';
+      container.appendChild(msg);
+    }
+  }
+
+  function renderSkeletons(groupCount, squadCount) {
+    const groupsContainer = document.getElementById('agent-groups');
+    const squadsContainer = document.getElementById('squad-cards');
+    groupsContainer.innerHTML = '';
+    squadsContainer.innerHTML = '';
+    for (let i = 0; i < groupCount; i++) {
+      const section = document.createElement('div');
+      section.className = 'group';
+      section.innerHTML = '<div class="group-label">    </div>';
+      for (let j = 0; j < 3; j++) section.appendChild(skeletonAction());
+      groupsContainer.appendChild(section);
+    }
+    for (let i = 0; i < squadCount; i++) {
+      squadsContainer.appendChild(skeletonAction());
+    }
+  }
+
+  return { renderGroups, renderSquads, renderSkeletons };
+})();
+
+// ──────────────────────────────────────────────
+// Controller — wiring clicks to existing sendTask
+// ──────────────────────────────────────────────
+const Controller = (function() {
+  function bindClicks() {
+    document.querySelectorAll('[data-task]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (typeof sendTask === 'function') sendTask(btn.dataset.task);
+      });
+    });
+  }
+  return { bindClicks };
+})();
+
+// ──────────────────────────────────────────────
+// App bootstrap — existing chat/health logic preserved
+// ──────────────────────────────────────────────
 const sessionId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 let ws;
 let busy = false;
@@ -307,19 +549,19 @@ async function refreshHealth() {
     setPill('pill-api', true, 'API · online');
     setPill('pill-redis', !!data.redis, data.redis ? 'Redis · ok' : 'Redis · down');
     setPill('pill-ollama', !!data.ollama, data.ollama ? 'Ollama · ok' : 'Ollama · offline', !data.ollama);
+    setPill('pill-backend', true, `LLM · ${(data.llm_backend || 'ollama').toUpperCase()}`);
   } catch {
     setPill('pill-api', false, 'API · offline');
     setPill('pill-redis', false, 'Redis · ?');
     setPill('pill-ollama', false, 'Ollama · ?');
+    setPill('pill-backend', false, 'LLM · ?');
   }
 }
 
 let connectPromise = null;
 
 async function connect() {
-  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-    return;
-  }
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
   if (connectPromise) return connectPromise;
 
   connectPromise = (async () => {
@@ -355,11 +597,7 @@ async function connect() {
       const done = () => { if (!settled) { settled = true; resolve(); } };
       ws = new WebSocket(`${proto}://${location.host}/ws/${sessionId}${q}`);
       ws.onopen = () => { refreshHealth(); done(); };
-      ws.onclose = () => {
-        connectPromise = null;
-        done();
-        setTimeout(connect, 2500);
-      };
+      ws.onclose = () => { connectPromise = null; done(); setTimeout(connect, 2500); };
       ws.onmessage = (e) => {
         const data = JSON.parse(e.data);
         if (data.type === 'result') {
@@ -418,6 +656,32 @@ async function sendTask(task) {
   document.getElementById('task-input').value = '';
 }
 
+// ──────────────────────────────────────────────
+// Load agents/squads → render sidebar
+// ──────────────────────────────────────────────
+async function initSidebar() {
+  Renderer.renderSkeletons(8, 6);
+  try {
+    const { groups, squads } = await DataLoader.loadAll();
+    Renderer.renderGroups(groups, document.getElementById('agent-groups'));
+    Renderer.renderSquads(squads, document.getElementById('squad-cards'));
+    Controller.bindClicks();
+  } catch (e) {
+    if (e.message === 'UNAUTHORIZED') {
+      sessionStorage.removeItem('api_secret');
+      addMsg('Session expired — refresh to re-enter API_SECRET.', 'system');
+    } else if (e.message === 'DEGRADED') {
+      addMsg('Server running in degraded mode (API_SECRET not set).', 'system');
+      Renderer.renderGroups({}, document.getElementById('agent-groups'));
+      Renderer.renderSquads([], document.getElementById('squad-cards'));
+    } else {
+      addMsg('Failed to load agents/squads — check connection.', 'system');
+      Renderer.renderGroups({}, document.getElementById('agent-groups'));
+      Renderer.renderSquads([], document.getElementById('squad-cards'));
+    }
+  }
+}
+
 document.getElementById('send-btn').addEventListener('click', () => {
   sendTask(document.getElementById('task-input').value);
 });
@@ -427,13 +691,14 @@ document.getElementById('task-input').addEventListener('keydown', (e) => {
     sendTask(document.getElementById('task-input').value);
   }
 });
-document.querySelectorAll('[data-task]').forEach(btn => {
+document.querySelectorAll('.starter').forEach(btn => {
   btn.addEventListener('click', () => sendTask(btn.dataset.task));
 });
 
 refreshHealth();
 setInterval(refreshHealth, 8000);
 connect();
+initSidebar();
 </script>
 </body>
 </html>
