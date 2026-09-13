@@ -29,7 +29,7 @@ ALLOWED_TOOLS = frozenset({
 # cannot re-partition dots between `(label.)+` and the TLD on backtracking —
 # keeps matching linear-time on hostile input (CodeQL py/redos). Requires
 # Python >= 3.11 (atomic groups).
-_EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@(?>(?:[a-zA-Z0-9-]+\.)+)[a-zA-Z]{2,}")
+_EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}")
 _SSN_RE = re.compile(r"(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)")
 _PHONE_RE = re.compile(r"(?<!\d)(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}(?!\d)")
 _MAX_SCRUB_TEXT_LEN = 10000

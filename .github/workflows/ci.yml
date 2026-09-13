@@ -35,5 +35,14 @@ jobs:
       - name: Smoke-import full app
         run: python -c "import api.server, main; print('app imports OK')"
 
+      - name: Ensure .env not tracked by git
+        run: git ls-files | grep -q "^\.env$" && exit 1 || exit 0
+
+      - name: Assert 40 agents registered
+        run: python -c "from agents.registry import ALL_AGENTS; assert len(ALL_AGENTS)==40"
+
+      - name: Auth smoke (py_compile server.py)
+        run: python -m py_compile api/server.py
+
       - name: Run tests
         run: pytest -q

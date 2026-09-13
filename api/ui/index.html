@@ -567,31 +567,29 @@ async function connect() {
   connectPromise = (async () => {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     let token = sessionStorage.getItem('api_secret') || '';
-    if (!token) {
-      token = window.prompt('Enter API_SECRET for this session') || '';
-      if (token) sessionStorage.setItem('api_secret', token);
-    }
-    if (!token) {
-      addMsg('API_SECRET required — refresh the page to enter it.', 'system');
-      return;
-    }
+    // Probe first with no token: if server has no API_SECRET, proceed with no auth.
     try {
-      const probe = await fetch('/api/agents', { headers: { 'X-API-Key': token } });
+      const probe = await fetch('/api/agents', token ? { headers: { 'X-API-Key': token } } : {});
       if (probe.status === 401) {
         sessionStorage.removeItem('api_secret');
-        addMsg('Invalid API_SECRET — refresh to retry.', 'system');
-        return;
-      }
-      if (probe.status === 503) {
-        addMsg('Server API_SECRET not configured — retrying…', 'system');
-        setTimeout(() => { connectPromise = null; connect(); }, 5000);
-        return;
+        token = window.prompt('Enter API_SECRET for this session') || '';
+        if (token) sessionStorage.setItem('api_secret', token);
+        if (!token) {
+          addMsg('API_SECRET required — refresh the page to enter it.', 'system');
+          return;
+        }
+        const retry = await fetch('/api/agents', { headers: { 'X-API-Key': token } });
+        if (retry.status === 401) {
+          sessionStorage.removeItem('api_secret');
+          addMsg('Invalid API_SECRET — refresh to retry.', 'system');
+          return;
+        }
       }
     } catch {
       setTimeout(() => { connectPromise = null; connect(); }, 2500);
       return;
     }
-    const q = `?token=${encodeURIComponent(token)}`;
+    const q = token ? `?token=${encodeURIComponent(token)}` : '';
     await new Promise((resolve) => {
       let settled = false;
       const done = () => { if (!settled) { settled = true; resolve(); } };

@@ -134,7 +134,9 @@ def _extract_api_secret(request: Request) -> Optional[str]:
 
 def _secret_ok(provided: Optional[str]) -> bool:
     expected = settings.api_secret
-    if not expected or not provided:
+    if not expected:  # secret not configured → always allow
+        return True
+    if not provided:  # no provided secret but secret is configured → fail
         return False
     # compare_digest raises if lengths differ
     if len(provided) != len(expected):
@@ -146,17 +148,10 @@ def _secret_ok(provided: Optional[str]) -> bool:
 async def require_api_secret(request: Request, call_next):
     """Reject unauthenticated HTTP API calls when API_SECRET is configured.
 
-    Fail closed if API_SECRET is unset (except public paths) so a misconfigured
-    bind to 0.0.0.0 cannot expose outreach/send/chat.
+    Open by default for local dev: if API_SECRET is unset, allow all.
     """
     if request.method == "OPTIONS" or request.url.path in _PUBLIC_PATHS:
         return await call_next(request)
-
-    if not settings.api_secret:
-        return JSONResponse(
-            {"detail": "API_SECRET not configured — refusing request"},
-            status_code=503,
-        )
 
     if not _secret_ok(_extract_api_secret(request)):
         return JSONResponse({"detail": "Unauthorized"}, status_code=401)
@@ -1593,7 +1588,7 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
     # Same extraction order as HTTP (headers then ?token= for browser UI).
     provided = _extract_api_secret_values(websocket.headers, websocket.query_params)
 
-    if not settings.api_secret or not _secret_ok(provided):
+    if not _secret_ok(provided):
         await websocket.close(code=4401)
         return
 
