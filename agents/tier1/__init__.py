@@ -59,41 +59,7 @@ If the task is complete or cannot be handled, set next_agent to "END".
     async def execute(self, state: AgentState) -> dict[str, Any]:
         task = state["task"]
         context = state.get("context", {})
-        mem = get_memory()
-
-        try:
-            # Determine operation from task
-            if any(w in task.lower() for w in ["store", "save", "remember", "memorize"]):
-                # Store operation
-                content_to_store = context.get("content", task)
-                doc_id = await mem.store(
-                    text=content_to_store,
-                    metadata={"task": task, "session": state["session_id"]},
-                    namespace="global",
-                )
-                result = f"Stored in memory with ID: {doc_id}"
-            else:
-                # Search/retrieve operation
-                memories = await mem.search(query=task, n_results=5, namespace="global")
-                if memories:
-                    formatted = "\n".join(
-                        f"[{i+1}] (dist={m['distance']:.3f}) {m['text'][:200]}"
-                        for i, m in enumerate(memories)
-                    )
-                    result = f"Found {len(memories)} relevant memories:\n{formatted}"
-                else:
-                    result = "No relevant memories found."
-        except Exception as e:
-            return self.error_result(f"Memory operation failed: {e}")
-
-        new_context = dict(context)
-        new_context["memory_result"] = result
-
-        return {
-            "context": new_context,
-            "result": result,
-            "next_agent": "END",
-        }
+        retries = state.get("retries", 0)
 
         # Build routing prompt
         history_summary = ""

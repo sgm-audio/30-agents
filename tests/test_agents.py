@@ -175,6 +175,29 @@ class TestAgentExecution:
         assert "result" in result
         assert "python" in result["result"].lower() or "print" in result["result"]
 
+    async def test_orchestrator_routes_to_specialist(self, mock_state, monkeypatch):
+        """Regression test: orchestrator must route to specialists, not run memory manager logic."""
+        from agents.tier1 import OrchestratorAgent
+
+        # Mock LLM to return a valid routing decision
+        async def mock_llm(self_inner, prompt, **kwargs):
+            # Verify the prompt contains routing instructions
+            assert "Route this task to the best agent" in prompt
+            return '{"next_agent": "code_writer", "reasoning": "Code task", "subtask": "Write hello world"}'
+
+        monkeypatch.setattr("agents.base.BaseAgent.llm", mock_llm)
+
+        agent = OrchestratorAgent()
+        result = await agent.execute(mock_state)
+
+        # Must route to a specialist, not terminate with memory result
+        assert result["next_agent"] == "code_writer"
+        assert result["task"] == "Write hello world"
+        assert "retries" in result
+        assert result["retries"] == 1
+        # Old buggy code would return "No relevant memories found." as result
+        assert result.get("result") != "No relevant memories found."
+
 
 # ──────────────────────────────────────────────
 # Tests: Memory (ChromaDB - no Ollama needed mock)
