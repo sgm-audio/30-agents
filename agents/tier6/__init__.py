@@ -82,8 +82,8 @@ class VisionAnalystAgent(BaseAgent):
                 analysis = f"Image URL blocked: {e}"
                 return {"result": analysis, "next_agent": "END"}
             try:
-                import httpx
-                async with httpx.AsyncClient(timeout=30.0) as client:
+                from core.pinned_http import pinned_async_client
+                async with pinned_async_client(timeout=30.0) as client:
                     resp = await client.get(safe_image_url)
                     resp.raise_for_status()
                     image_b64 = base64.b64encode(resp.content).decode()

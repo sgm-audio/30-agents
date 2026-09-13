@@ -1,11 +1,24 @@
-"""Security helpers for URL and workspace-path validation."""
+"""Security helpers for URL and workspace-path validation.
+
+URL validation lives in exactly one place — `core.validation` — so the DNS
+decisions made by pre-flight checks and by the pinning transports in
+`core.pinned_http` can never drift. This module re-exports that
+implementation for the call sites written against the `core.safety` path;
+workspace confinement below is unchanged.
+"""
 from __future__ import annotations
 
-import ipaddress
 import os
-import socket
 from pathlib import Path
-from urllib.parse import urlparse
+
+from core.validation import resolve_public_ips, validate_public_http_url
+
+__all__ = [
+    "WORKSPACE_ROOT",
+    "resolve_public_ips",
+    "resolve_workspace_path",
+    "validate_public_http_url",
+]
 
 
 _DEFAULT_WORKSPACE = Path(__file__).parent.parent / "data" / "workspace"
@@ -39,60 +52,3 @@ def resolve_workspace_path(user_path: str) -> Path | None:
     except ValueError:
         return None
     return resolved
-
-
-def validate_public_http_url(url: str) -> str | None:
-    """Allow only http(s) URLs that resolve to public (non-local/private) IPs.
-
-    This is a best-effort preflight check; callers should still treat outbound fetches
-    as untrusted network operations.
-    """
-    if not isinstance(url, str):
-        return None
-
-    candidate = url.strip()
-    if not candidate or len(candidate) > 2048:
-        return None
-
-    parsed = urlparse(candidate)
-    if parsed.scheme not in ("http", "https") or not parsed.hostname:
-        return None
-    if parsed.username or parsed.password:
-        return None
-    if parsed.query or parsed.fragment:
-        return None
-
-    # Restrict explicit ports to standard HTTP(S) only.
-    try:
-        port = parsed.port
-    except ValueError:
-        return None
-    if port is not None and port not in (80, 443):
-        return None
-
-    hostname = parsed.hostname.strip().rstrip(".")
-    if not hostname:
-        return None
-
-    # If hostname is an IP literal, validate it directly.
-    try:
-        host_ip = ipaddress.ip_address(hostname)
-        if not host_ip.is_global:
-            return None
-    except ValueError:
-        # Not an IP literal; resolve and require all answers to be globally routable.
-        try:
-            addrinfos = socket.getaddrinfo(hostname, None)
-        except socket.gaierror:
-            return None
-
-        for info in addrinfos:
-            ip_text = info[4][0]
-            try:
-                ip = ipaddress.ip_address(ip_text)
-            except ValueError:
-                return None
-            if not ip.is_global:
-                return None
-
-    return candidate

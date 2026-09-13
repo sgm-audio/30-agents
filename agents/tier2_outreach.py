@@ -14,6 +14,7 @@ import structlog
 from agents.base import BaseAgent, extract_json
 from core.config import settings
 from core.graph import AgentState
+from core.validation import validate_public_http_url
 
 log = structlog.get_logger(__name__)
 
@@ -83,6 +84,13 @@ def _firecrawl_scrape(url: str) -> str:
     import httpx
     key = settings.firecrawl_api_key
     if not key:
+        return ""
+    # Validate before delegating: internal/metadata URLs must never be
+    # exfiltrated to a third-party fetch service.
+    try:
+        validate_public_http_url(url)
+    except ValueError as e:
+        log.warning("firecrawl.url_blocked", url=url[:120], error=str(e))
         return ""
     try:
         resp = httpx.post(

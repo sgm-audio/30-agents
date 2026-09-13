@@ -10,6 +10,14 @@ Input validation for security-sensitive sinks (SSRF + path traversal).
 Both helpers exist to break taint flows between user-controlled input
 (task/context fields, HTTP request bodies) and network/filesystem sinks.
 Callers must use the *returned* value against the sink, after the check.
+
+NOTE (CodeQL triage): these two functions are the project's SSRF and
+path-traversal sanitizers. CodeQL does not auto-model custom validators, so
+alerts on call sites that route through them are expected until dismissed
+as "Fixed" after verifying the call site uses the returned value. Alerts
+raised *inside* these two functions (where the raw input must be touched
+in order to check it) are false positives by construction.
+Callers must use the *returned* value against the sink, after the check.
 """
 from __future__ import annotations
 
@@ -51,6 +59,36 @@ def _is_public_ip(ip_str: str) -> bool:
     return not any(ip in net for net in _EXTRA_BLOCKED_NETWORKS)
 
 
+def resolve_public_ips(host: str, port: int) -> list[str]:
+    """Resolve `host` and return its IPs after verifying ALL are public.
+
+    This is the single choke point for DNS-based SSRF decisions: both
+    `validate_public_http_url()` and the pinning transports in
+    `core/pinned_http.py` go through here, so the set of addresses deemed
+    safe can never drift between the check and the connection.
+
+    Raises ValueError if the host is blocked, unresolvable, or resolves to
+    any non-public address (loopback, RFC1918, link-local, CGNAT, multicast,
+    reserved, unspecified, ...).
+    """
+    if not host or host.lower() in _BLOCKED_HOSTNAMES:
+        raise ValueError(f"Hostname is not allowed: {host}")
+    try:
+        infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+    except (socket.gaierror, UnicodeError) as e:
+        raise ValueError(f"Hostname does not resolve: {host}") from e
+    if not infos:
+        raise ValueError(f"Hostname does not resolve: {host}")
+    ips: list[str] = []
+    for info in infos:
+        ip = info[4][0]
+        if not _is_public_ip(ip):
+            raise ValueError(f"URL host does not resolve to a public address: {host}")
+        if ip not in ips:
+            ips.append(ip)
+    return ips
+
+
 def validate_public_http_url(url: str) -> str:
     """Validate that `url` is safe to fetch on behalf of a user.
 
@@ -70,15 +108,7 @@ def validate_public_http_url(url: str) -> str:
     if host.lower() in _BLOCKED_HOSTNAMES:
         raise ValueError(f"Hostname is not allowed: {host}")
     port = parsed.port or _DEFAULT_PORTS[parsed.scheme]  # parsed.port may raise ValueError
-    try:
-        infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
-    except (socket.gaierror, UnicodeError) as e:
-        raise ValueError(f"Hostname does not resolve: {host}") from e
-    if not infos:
-        raise ValueError(f"Hostname does not resolve: {host}")
-    for info in infos:
-        if not _is_public_ip(info[4][0]):
-            raise ValueError(f"URL host does not resolve to a public address: {host}")
+    resolve_public_ips(host, port)
     return url
 
 

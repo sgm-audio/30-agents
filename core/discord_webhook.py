@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
-import httpx
 import structlog
 
 from core.safety import validate_public_http_url
@@ -108,13 +107,13 @@ async def send_discord(
     if not url:
         log.debug("discord.webhook_not_configured")
         return False
-    safe_url = _validate_discord_webhook_url(url)
+    try:
+        safe_url = _validate_discord_webhook_url(url)
+    except ValueError as e:
+        log.warning("discord.webhook_url_rejected", error=str(e))
+        return False
     if not safe_url:
         log.warning("discord.webhook_unsafe_url")
-        return False
-
-    if not is_allowed_webhook_url(url):
-        log.warning("discord.webhook_url_rejected")
         return False
 
     payload = {
@@ -130,7 +129,8 @@ async def send_discord(
     }
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        from core.pinned_http import pinned_async_client
+        async with pinned_async_client(timeout=10.0) as client:
             resp = await client.post(safe_url, json=payload)
             if resp.status_code in (200, 204):
                 log.info("discord.notification_sent", title=embed_title)
@@ -218,15 +218,36 @@ async def test_webhook(webhook_url: str) -> dict:
         fields=[{"name": "Status", "value": "Configuration successful!", "inline": False}],
         webhook_url=webhook_url,
     )
-    return {"success": success, "webhook_url": webhook_url}
+    # Never echo the full webhook URL (it contains a secret token).
+    return {"success": success, "webhook_url": _mask_webhook_url(webhook_url)}
+
+
+def _mask_webhook_url(url: str) -> str:
+    """Mask a webhook URL's secret token portion for safe logging/API output."""
+    try:
+        from urllib.parse import urlparse, urlunparse
+        parsed = urlparse(url)
+        parts = parsed.path.rstrip("/").rsplit("/", 1)
+        if len(parts) == 2 and parts[1]:
+            masked = parsed._replace(path=f"{parts[0]}/…{parts[1][-4:]}")
+            return urlunparse(masked)
+    except Exception:
+        pass
+    return "…"
 
 
 def update_webhook_url(url: str):
+    try:
+        safe_url = _validate_discord_webhook_url(url)
+    except ValueError:
+        safe_url = None
+    if not safe_url:
+        raise ValueError("Webhook URL must be an https:// Discord /api/webhooks/ URL")
     cfg = _load_config()
     cfg["webhook_url"] = url
     cfg["enabled"] = bool(url)
     _save_config(cfg)
-    log.info("discord.webhook_updated", url=url[:30] + "..." if len(url) > 30 else url)
+    log.info("discord.webhook_updated", url=_mask_webhook_url(url))
 
 
 def set_notify_on(events: list[str]):

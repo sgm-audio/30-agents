@@ -182,6 +182,9 @@ class AutopilotScheduler:
         webhook_url: str | None = None,
         notify_on: list[str] | None = None,
     ) -> AutopilotConfig:
+        from core.discord_webhook import is_allowed_webhook_url
+        if webhook_url and not is_allowed_webhook_url(webhook_url):
+            raise ValueError("webhook_url must be an https:// Discord webhook URL")
         config = AutopilotConfig(
             name=name,
             agent_name=agent_name,

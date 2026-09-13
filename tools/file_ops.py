@@ -3,6 +3,7 @@ Tool: File operations (read, write, list)
 Restricted to workspace directory for safety.
 """
 import os
+import re
 from pathlib import Path
 
 from core.safety import WORKSPACE_ROOT, resolve_workspace_path
@@ -29,6 +30,22 @@ def _validate_path(filepath: str) -> tuple[Path | None, str | None]:
     if fullpath != base and not fullpath.startswith(base + os.sep):
         return None, f"Access denied: {filepath} is outside workspace {base}"
     return Path(fullpath), None
+
+
+def _validate_pattern(pattern: str) -> str | None:
+    """Reject glob patterns that could escape the workspace or abuse enumeration.
+
+    Only a single path segment of safe characters with * ? [...] wildcards is
+    allowed — no directory separators, parent refs, or absolute patterns.
+    Returns an error string, or None if the pattern is acceptable.
+    """
+    if not pattern or len(pattern) > 100:
+        return f"Invalid pattern: {pattern!r}"
+    if "/" in pattern or "\\" in pattern or pattern.startswith("."):
+        return f"Invalid pattern (no paths): {pattern!r}"
+    if not re.fullmatch(r"[A-Za-z0-9_*?\-.\[\]!]+", pattern):
+        return f"Invalid pattern (bad characters): {pattern!r}"
+    return None
 
 
 def read_file(filepath: str, max_chars: int = 8000) -> str:
@@ -67,6 +84,9 @@ def list_directory(dirpath: str, pattern: str = "*") -> str:
     path, err = _validate_path(dirpath)
     if err:
         return f"Error: {err}"
+    pat_err = _validate_pattern(pattern)
+    if pat_err:
+        return f"Error: {pat_err}"
     if not path.exists():
         return f"Error: Directory not found: {dirpath}"
     try:

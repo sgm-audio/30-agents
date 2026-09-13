@@ -41,8 +41,10 @@ extract key facts, summarize findings, and highlight the most relevant informati
 for the user's query. Be concise and cite specific details."""
 
     async def execute(self, state: AgentState) -> dict[str, Any]:
-        import httpx
         from html2text import html2text
+
+        from core.pinned_http import afetch_public
+        from core.validation import validate_public_http_url
 
         task = state["task"]
         context = state.get("context", {})
@@ -51,16 +53,21 @@ for the user's query. Be concise and cite specific details."""
 
         if url:
             try:
-                safe_url = validate_public_http_url(url)
+                validate_public_http_url(url)
             except ValueError as e:
                 md_content = f"Blocked URL ({e}): {url}"
             else:
                 try:
-                    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                        headers = {"User-Agent": "Mozilla/5.0 (research bot)"}
-                        resp = await client.get(safe_url, headers=headers)
-                        resp.raise_for_status()
-                        md_content = html2text(resp.text)[:4000]
+                    # Pinned transport + per-hop re-validation (afetch_public).
+                    resp = await afetch_public(
+                        url,
+                        timeout=30.0,
+                        headers={"User-Agent": "Mozilla/5.0 (research bot)"},
+                    )
+                    resp.raise_for_status()
+                    md_content = html2text(resp.text)[:4000]
+                except ValueError as e:
+                    md_content = f"Blocked URL ({e}): {url}"
                 except Exception as e:
                     md_content = f"Failed to fetch {url}: {e}"
         else:

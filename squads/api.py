@@ -159,9 +159,10 @@ async def run_squad(squad_name: str, req: SquadRunRequest):
     if req.max_leads:
         initial_context["max_leads"] = req.max_leads
     if req.url:
-        safe_url = validate_public_http_url(req.url)
-        if not safe_url:
-            raise HTTPException(status_code=400, detail="Unsafe or invalid URL")
+        try:
+            safe_url = validate_public_http_url(req.url)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Unsafe or invalid URL: {e}")
         initial_context["url"] = safe_url
 
     state: AgentState = {

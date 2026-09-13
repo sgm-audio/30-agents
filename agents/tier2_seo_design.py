@@ -14,6 +14,7 @@ import structlog
 from agents.base import BaseAgent, extract_json
 from core.config import settings
 from core.graph import AgentState
+from core.pinned_http import fetch_public as _fetch_public
 from core.validation import validate_public_http_url
 
 log = structlog.get_logger(__name__)
@@ -30,6 +31,19 @@ __all__ = [
 # ══════════════════════════════════════════════════════════════
 # Shared helpers
 # ══════════════════════════════════════════════════════════════
+def _require_public_url(url: str) -> str | None:
+    """Defense-in-depth: validate a user-supplied URL before any outbound use.
+
+    Returns the URL unchanged if it resolves to public IPs only, else logs
+    and returns None. Callers must treat None as blocked.
+    """
+    try:
+        return validate_public_http_url(url)
+    except ValueError as e:
+        log.warning("seo.url_blocked", url=url[:120], error=str(e))
+        return None
+
+
 def _serper_search(query: str, num_results: int = 10) -> list[dict]:
     import httpx
     key = settings.serper_api_key
@@ -73,6 +87,11 @@ def _firecrawl_scrape(url: str, extract_links: bool = False) -> dict:
     key = settings.firecrawl_api_key
     if not key:
         return {}
+    # The target URL is delegated to Firecrawl's servers for fetching, but
+    # validate it anyway so internal/metadata URLs are never exfiltrated
+    # to a third party and never drive server-side fetches.
+    if _require_public_url(url) is None:
+        return {}
     try:
         resp = httpx.post(
             "https://api.firecrawl.dev/v0/scrape",
@@ -92,12 +111,16 @@ def _firecrawl_scrape(url: str, extract_links: bool = False) -> dict:
 
 def _pagespeed_insights(url: str) -> dict:
     import httpx
+    from urllib.parse import quote
     key = settings.serper_api_key
     if not key:
         return {}
+    # Validate before embedding the target in the Google API request.
+    if _require_public_url(url) is None:
+        return {}
     try:
         resp = httpx.get(
-            f"https://pagespeedonline.googleapis.com/pagespeedonline/v5/runPagespeedReport?url={url}&strategy=mobile&key={key}",
+            f"https://pagespeedonline.googleapis.com/pagespeedonline/v5/runPagespeedReport?url={quote(url, safe='')}&strategy=mobile&key={key}",
             timeout=20.0,
         )
         if resp.status_code == 200:
@@ -111,6 +134,10 @@ def _pagespeed_insights(url: str) -> dict:
     except Exception as e:
         log.debug("pagespeed.failed", url=url, error=str(e))
     return {}
+
+
+# Redirect-safe fetching lives in core/pinned_http.fetch_public (pinned
+# transport + per-hop re-validation); _fetch_public is an alias for it.
 
 
 # ══════════════════════════════════════════════════════════════
@@ -266,6 +293,9 @@ Return a scored audit with specific line-by-line recommendations.
         if not target_url:
             return self.error_result("Blocked unsafe URL.")
 
+        if _require_public_url(target_url) is None:
+            return self.error_result(f"URL blocked (non-public or invalid): {target_url[:120]}")
+
         scraped = _firecrawl_scrape(target_url, extract_links=True)
         links = scraped.get("links", []) or []
 
@@ -360,6 +390,10 @@ Return: score out of 100 + specific prioritized fixes
         if not target_url:
             return self.error_result("Blocked unsafe URL.")
 
+        # Fail fast on non-public targets (SSRF guard) before any fetch.
+        if _require_public_url(target_url) is None:
+            return self.error_result(f"URL blocked (non-public or invalid): {target_url[:120]}")
+
         checks = {}
 
         checks["https"] = target_url.startswith("https")
@@ -368,9 +402,8 @@ Return: score out of 100 + specific prioritized fixes
         robots_url = target_url.rstrip("/") + "/robots.txt"
         for check_url, key in [(sitemap_url, "sitemap"), (robots_url, "robots_txt")]:
             try:
-                import httpx
-                safe_check_url = validate_public_http_url(check_url)
-                r = httpx.get(safe_check_url, timeout=8.0, follow_redirects=True)
+                # _fetch_public re-validates every redirect hop.
+                r = _fetch_public(check_url, timeout=8.0)
                 checks[key] = r.status_code == 200 and len(r.text) > 10
             except Exception:
                 checks[key] = False
@@ -383,15 +416,12 @@ Return: score out of 100 + specific prioritized fixes
 
         schema_url = target_url.rstrip("/") + "/schema.json"
         try:
-            import httpx
-            safe_schema_url = validate_public_http_url(schema_url)
-            r = httpx.get(safe_schema_url, timeout=5.0)
+            r = _fetch_public(schema_url, timeout=5.0)
             checks["schema_json"] = r.status_code == 200
         except Exception:
             checks["schema_json"] = False
 
         try:
-            import httpx
             scraped = _firecrawl_scrape(target_url)
             content = scraped.get("content", "")[:2000]
             has_schema = bool(re.search(r'"@type"', content) or re.search(r"application/ld\+json", content))
@@ -472,6 +502,9 @@ Return specific recommendations organized by priority.
 
         if not target_url or target_url == "none":
             return self.error_result("No URL provided.")
+
+        if _require_public_url(target_url) is None:
+            return self.error_result(f"URL blocked (non-public or invalid): {target_url[:120]}")
 
         scraped = _firecrawl_scrape(target_url)
         content = scraped.get("content", "") or ""

@@ -237,7 +237,10 @@ async def get_discord_webhook_config():
 @app.post("/api/webhook/discord")
 async def update_discord_webhook(req: WebhookUpdateRequest):
     if req.webhook_url is not None:
-        update_webhook_url(req.webhook_url)
+        try:
+            update_webhook_url(req.webhook_url)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
     if req.notify_on is not None:
         set_notify_on(req.notify_on)
     return get_discord_config()
@@ -666,12 +669,14 @@ class BacklinkRequest(BaseModel):
 @app.post("/api/seo/analyze")
 async def seo_analyze(req: SEOAnalyzeRequest):
     from agents.tier2_seo_design import OnPageSEOAgent, TechnicalSEOAgent, ContentSEOAgent
+    from core.validation import validate_public_http_url
 
     if not req.url:
         raise HTTPException(status_code=400, detail="URL required")
-    safe_url = validate_public_http_url(req.url)
-    if not safe_url:
-        raise HTTPException(status_code=400, detail="Unsafe or invalid URL")
+    try:
+        safe_url = validate_public_http_url(req.url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"URL blocked: {e}")
 
     context_base = {"url": safe_url, "keyword": req.keyword}
 
@@ -711,12 +716,14 @@ async def seo_analyze(req: SEOAnalyzeRequest):
 async def find_backlinks(req: BacklinkRequest):
     from agents.tier2_seo_design import BacklinkAgent
     from core.graph import AgentState
+    from core.validation import validate_public_http_url
 
     if not req.url:
         raise HTTPException(status_code=400, detail="URL required")
-    safe_url = validate_public_http_url(req.url)
-    if not safe_url:
-        raise HTTPException(status_code=400, detail="Unsafe or invalid URL")
+    try:
+        safe_url = validate_public_http_url(req.url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"URL blocked: {e}")
 
     state: AgentState = {
         "messages": [], "next_agent": "orchestrator",
@@ -743,12 +750,14 @@ async def find_backlinks(req: BacklinkRequest):
 async def design_concept(req: DesignConceptRequest):
     from agents.tier2_seo_design import WebDesignConceptAgent
     from core.graph import AgentState
+    from core.validation import validate_public_http_url
 
     safe_url = ""
-    if req.url:
-        safe_url = validate_public_http_url(req.url) or ""
-        if not safe_url:
-            raise HTTPException(status_code=400, detail="Unsafe or invalid URL")
+    if req.url and req.url not in ("none", ""):
+        try:
+            safe_url = validate_public_http_url(req.url)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"URL blocked: {e}")
 
     state: AgentState = {
         "messages": [], "next_agent": "orchestrator",
@@ -776,12 +785,14 @@ async def design_concept(req: DesignConceptRequest):
 async def seo_pipeline(url: str, keyword: str = "", industry: str = ""):
     from agents.tier2_seo_design import OnPageSEOAgent, TechnicalSEOAgent, ContentSEOAgent, BacklinkAgent
     from core.graph import AgentState
+    from core.validation import validate_public_http_url
 
     if not url:
         raise HTTPException(status_code=400, detail="URL required")
-    safe_url = validate_public_http_url(url)
-    if not safe_url:
-        raise HTTPException(status_code=400, detail="Unsafe or invalid URL")
+    try:
+        safe_url = validate_public_http_url(url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"URL blocked: {e}")
 
     context = {"url": safe_url, "keyword": keyword, "industry": industry}
 
@@ -932,6 +943,9 @@ async def update_autopilot(autopilot_id: str, req: UpdateAutopilotRequest):
         if not config:
             raise HTTPException(status_code=404, detail="Autopilot not found")
         if req.webhook_url is not None:
+            from core.discord_webhook import is_allowed_webhook_url
+            if not is_allowed_webhook_url(req.webhook_url):
+                raise HTTPException(status_code=400, detail="webhook_url must be an https:// Discord webhook URL")
             config.webhook_url = req.webhook_url
         if req.notify_on is not None:
             config.notify_on = req.notify_on

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from core.discord_webhook import is_allowed_webhook_url
+from core.discord_webhook import is_allowed_webhook_url, update_webhook_url
 from core.security_gate import scrub_pii
 from core.validation import resolve_allowed_path, validate_public_http_url
 from tools import file_ops
@@ -116,6 +116,16 @@ class TestFileOpsWorkspaceConfinement:
             outside = "/etc/passwd"
         assert file_ops.read_file(outside).startswith("Error: Access denied")
 
+    def test_glob_pattern_with_path_rejected(self, ws):
+        file_ops.write_file("a.txt", "x")
+        assert file_ops.list_directory(".", "../*").startswith("Error: Invalid pattern")
+        assert file_ops.list_directory(".", "/etc/*").startswith("Error: Invalid pattern")
+        assert file_ops.list_directory(".", "..").startswith("Error: Invalid pattern")
+
+    def test_glob_pattern_safe_wildcards_allowed(self, ws):
+        file_ops.write_file("a.txt", "x")
+        assert "[FILE] a.txt" in file_ops.list_directory(".", "*.txt")
+
 
 class TestWebhookUrlAllowlist:
     @pytest.mark.parametrize("url", [
@@ -136,6 +146,33 @@ class TestWebhookUrlAllowlist:
     ])
     def test_rejects_non_discord(self, url):
         assert not is_allowed_webhook_url(url)
+
+
+class TestWebhookUrlStorage:
+    def test_update_rejects_non_discord(self, tmp_path, monkeypatch):
+        import core.discord_webhook as dw
+        monkeypatch.setattr(dw, "CONFIG_PATH", tmp_path / "discord_webhook.json")
+        with pytest.raises(ValueError):
+            update_webhook_url("https://evil.com/api/webhooks/1/x")
+
+    def test_update_accepts_discord(self, tmp_path, monkeypatch):
+        import core.discord_webhook as dw
+        monkeypatch.setattr(dw, "CONFIG_PATH", tmp_path / "discord_webhook.json")
+        update_webhook_url("https://discord.com/api/webhooks/123/abc")
+        assert dw.get_webhook_url() == "https://discord.com/api/webhooks/123/abc"
+
+    def test_test_webhook_masks_secret(self, tmp_path, monkeypatch):
+        import asyncio
+        import core.discord_webhook as dw
+        monkeypatch.setattr(dw, "CONFIG_PATH", tmp_path / "discord_webhook.json")
+
+        async def _fake_send(*args, **kwargs):
+            return True
+
+        monkeypatch.setattr(dw, "send_discord", _fake_send)
+        result = asyncio.run(dw.test_webhook("https://discord.com/api/webhooks/123/supersecrettoken"))
+        assert result["success"] is True
+        assert "supersecrettoken" not in result["webhook_url"]
 
 
 class TestEmailRegexReDoS:
