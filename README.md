@@ -1,5 +1,9 @@
 # 30 Agents — Local-First AI Pipelines You Own
 
+[![CI](https://github.com/sgm-audio/30-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/sgm-audio/30-agents/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
+
 **The business case in one line:** stop renting agency-grade outreach, SEO, and content pipelines by the token — run them under **your** orchestration, on **your** hardware if you want (local Ollama mode = $0 marginal inference cost), with a routing trace you can put in front of a client.
 
 ---
