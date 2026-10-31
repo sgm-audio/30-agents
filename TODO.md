@@ -87,8 +87,8 @@
 
 ## 📋 Maintenance
 
-### 11. ⏳ **Update AGENTS.md config table with LLM_BACKEND**
-- **What:** `AGENTS.md` config section already updated in NIM backend PR — verify it's current
+### 11. ⏳ **Update docs/OPERATIONS.md config table with LLM_BACKEND**
+- **What:** `docs/OPERATIONS.md` config section already updated in NIM backend PR — verify it's current
 - **Status:** Likely done, confirm
 - **Depends on:** None
 
