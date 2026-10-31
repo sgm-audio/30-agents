@@ -17,7 +17,7 @@ Small agencies, freelancers, and solo technical consultants lose billable hours 
 
 ## 2. Product
 
-A **local, fully self-hosted multi-agent orchestration system**: LangGraph state machine + FastAPI. Inference uses NVIDIA NIM by default (needs an API key) or local Ollama with `LLM_BACKEND=ollama` (no key). 40 specialist agents across 6 capability tiers, addressable individually, as **6 pre-wired squads** (`@OutreachSquad`, `@SEOSquad`, `@AnalyticsSquad`, `@ContentSquad`, `@CodeSquad`, `@VisionSquad`), or via REST/WebSocket/CLI/MCP.
+A **multi-agent orchestration system that can run fully self-hosted**: LangGraph state machine + FastAPI. Inference uses NVIDIA NIM by default (needs an API key) or local Ollama with `LLM_BACKEND=ollama` (no key). 40 specialist agents across 6 capability tiers, addressable individually, as **6 pre-wired squads** (`@OutreachSquad`, `@SEOSquad`, `@AnalyticsSquad`, `@ContentSquad`, `@CodeSquad`, `@VisionSquad`), or via REST/WebSocket/CLI/MCP.
 
 **Surfaces:**
 
@@ -38,7 +38,7 @@ A **local, fully self-hosted multi-agent orchestration system**: LangGraph state
 
 | Metric | Target | How measured |
 |---|---|---|
-| Inference cost per pipeline run | **$0 marginal** (local Ollama) | `core/kpi_tracker.py` agent cost report |
+| Inference cost per pipeline run | **$0 marginal** with `LLM_BACKEND=ollama`; the default NIM backend is a paid cloud API | `core/kpi_tracker.py` agent cost report |
 | Outreach pipeline: leads → personalized emails | 50 leads/run, dry-run safe | `/api/outreach/pipeline`, `lead_manager` |
 | Graph routing integrity | full `agent_path` trace on every run | `core/graph.py` `_tracked` wrapper |
 | Failure containment | 504 at `AGENT_TIMEOUT` (default 120 s); orchestrator bail at 5 retries; hard recursion limit 50 hops | `core/config.py`, `BaseAgent.__call__` |
