@@ -1,22 +1,15 @@
-# 30 Agents — Local-First AI Pipelines You Own
+# 30 Agents — self-hosted multi-agent pipelines
 
 [![CI](https://github.com/sgm-audio/30-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/sgm-audio/30-agents/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
+A LangGraph + FastAPI system that routes a task through specialist agents and returns the result with a trace of which agents ran. It includes pre-wired pipelines for outreach (lead scraping, email enrichment, email drafting) and SEO audits. The LLM backend is NVIDIA NIM by default, or a local Ollama server (`LLM_BACKEND=ollama`).
 
-**The business case in one line:** stop renting agency-grade outreach, SEO, and content pipelines by the token — run them under **your** orchestration, on **your** hardware if you want (local Ollama mode = $0 marginal inference cost), with a routing trace you can put in front of a client.
-
----
-
-## The Expensive Problem This Solves
-
-If you bill for lead-gen, SEO, or content, you're currently paying cloud-API margin on every run and re-assembling the same pipeline by hand for every client. That is **revenue leakage** twice over: once to the model provider, once to unbillable setup time. This system turns the pipeline into an owned asset — lead discovery → email enrichment → personalized outreach → SEO audit → report — executed by 40 local specialist agents with a per-run audit trail and a cost report. Want zero marginal inference cost? Set `LLM_BACKEND=ollama` and the whole system runs on your hardware.
+The repo name is historical: the registry now holds **40 agents** (`agents/registry.py`, checked by `tests/test_registry_count.py`).
 
 ---
 
-## Architecture Graph
-
-Mapped from the live knowledge graph (1,197 nodes · 2,486 edges). God nodes by connectivity: `AgentState` (124), `BaseAgent` (68), `Redis` (54+23), `SquadLeader` (26).
+## Architecture
 
 ```mermaid
 flowchart TD
@@ -27,7 +20,7 @@ flowchart TD
         REST["REST / WebSocket"]
     end
 
-    Entry --> API["FastAPI server · fail-closed auth"]
+    Entry --> API["FastAPI server · optional API_SECRET auth"]
     API --> ORCH["OrchestratorAgent<br/>NL → JSON routing decision"]
 
     subgraph Graph["LangGraph state machine · START → orchestrator → specialist → orchestrator"]
@@ -54,31 +47,31 @@ flowchart TD
     style DONE fill:#2ecc71,color:#000
 ```
 
-Every specialist returns a typed partial `AgentState`; setting `result` terminates the run. Full routing trace (`agent_path`) is injected automatically — you can show a client exactly which agents touched their job.
+Every specialist returns a partial `AgentState`; setting `result` ends the run. The list of agents that ran is recorded in `agent_path`.
 
 ---
 
-## R&D Status: Production Core, Actively Extending
+## What is implemented
 
-**Production-ready and tested** (pytest, `asyncio_mode=auto`):
+Checked against the code on 2026-10-31:
 
-- Orchestrated routing over 40 agents with retry (tenacity, exp. backoff), per-agent Redis metrics, and consistent error routing
-- **Fail-closed security** — HTTP middleware refuses all but `/api/health` with 503 when `API_SECRET` is unset; tool-call whitelist + blocked-arg patterns; PII scrubbing; Discord-webhook URL allowlist
-- Full **outreach pipeline** (scrape → enrich → generate → send via Resend, dry-run by default) and **SEO pipeline** (on-page + technical + content in parallel, then backlinks)
-- Sessions and long-term memory (Redis + embedded ChromaDB), KPI/cost reporting, Discord notifications, autopilot scheduler
-- MCP stdio bridge (incl. auto-start hub) exposing 14 tools to Cursor / OpenCode / Claude Desktop
+- 40 agents in 6 tiers, routed by an orchestrator (`agents/registry.py`, `core/graph.py`)
+- Per-agent retry with exponential backoff via tenacity (`agents/base.py:87-89`)
+- 6 squads defined in `squads/config/*.json` (analytics, code, content, outreach, SEO, vision)
+- Outreach pipeline: scrape, enrich, generate, send via Resend. The CLI defaults to dry run (`main.py:475`); pass `--send` to actually send.
+- SEO pipeline: on-page, technical and content checks, then backlinks
+- Sessions in Redis, vector memory in ChromaDB
+- Tool-call allowlist and blocked-argument patterns (`core/security_gate.py`); Discord webhook URLs must be https on a Discord domain (`core/discord_webhook.py`)
+- MCP stdio bridge exposing 14 tools (`tools/mcp_bridge.py`)
 
-**Architecture Sandbox — roadmap nodes being hardened next:**
+**Authentication is open by default.** If `API_SECRET` is not set, every endpoint accepts requests without a key (`api/server.py:135-160`, and `tests/test_auth_open_by_default.py` asserts this). When `API_SECRET` is set, requests without the right key get **401**. Set `API_SECRET` before exposing the server beyond localhost. CORS allows `*` unless `CORS_ORIGINS` is set (`core/config.py:65`).
 
-- Human-in-the-loop approval tools (12-factor factor 7) — designed, not wired
-- Per-agent backend override (heavy reasoning → NIM, cheap routing → local Ollama)
-- Additional squad configs via the JSON registry (no code changes required)
+**Not implemented yet:**
 
----
+- Human-in-the-loop approval tools (designed, not wired)
+- Per-agent backend override (e.g. NIM for some agents, Ollama for others)
 
-## Deployment ROI
-
-Deploying this architecture gives a client an owned, auditable outreach + SEO + content pipeline they control — with an optional one-line switch (`LLM_BACKEND=ollama`) to run inference on their own hardware at zero marginal cost — so the first campaign it runs is pipeline they would otherwise have paid cloud margin and setup hours to produce.
+**Test status (2026-10-31, Python 3.12, `pytest -q`):** 124 passed, 1 failed (`tests/test_validation.py::TestWebhookUrlStorage::test_update_accepts_discord`).
 
 ---
 
@@ -97,7 +90,7 @@ pytest                                       # test suite
 
 **Docs:** [PRD](docs/PRD.md) · [ADR-001 — pluggable inference](docs/ADR-001.md) · [AGENTS.md](AGENTS.md) (operator manual) · [Windows smoke checklist](docs/WINDOWS_SMOKE.md)
 
-**LLM backend:** default is **NVIDIA NIM** (`LLM_BACKEND=nim`, needs `NVIDIA_API_KEY`/`NIM_API_KEY`). For fully local, key-free inference set `LLM_BACKEND=ollama` and run Ollama — health then reports the active backend. Without either the API still runs; health reports `degraded`.
+**LLM backend:** default is **NVIDIA NIM** (cloud, needs an API key) (`LLM_BACKEND=nim`, needs `NVIDIA_API_KEY`/`NIM_API_KEY`). For fully local, key-free inference set `LLM_BACKEND=ollama` and run Ollama — health then reports the active backend. Without either the API still runs; health reports `degraded`.
 
 **Optional outreach keys** (`.env`): `SERPER_API_KEY`, `TAVILY_API_KEY`, `FIRECRAWL_API_KEY`, `HUNTER_API_KEY`, `RESEND_API_KEY`, `OUTREACH_EMAIL_FROM`, `OUTREACH_DOMAIN`.
 
