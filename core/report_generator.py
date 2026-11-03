@@ -282,7 +282,7 @@ class AgentCostReport(ReportGenerator):
         self.redis = get_redis()
 
     async def estimate_cost(self) -> dict:
-            kpi = KPITracker()
+        kpi = KPITracker()
         total = await kpi.get_current("agent_executions_total") or 0
         avg_dur = await kpi.get_current("agent_avg_duration") or 0
         compute_hours = round(total * avg_dur / 3600, 1) if avg_dur else 0
