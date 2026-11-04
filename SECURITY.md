@@ -21,4 +21,4 @@
 
 ## Vulnerability Reporting
 
-Report security vulnerabilities via [GitHub Security Advisories](https://github.com/30-agents/30-agents/security/advisories).
+Report security vulnerabilities via [GitHub Security Advisories](https://github.com/sgm-audio/30-agents/security/advisories).
