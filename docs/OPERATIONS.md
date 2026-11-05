@@ -1,6 +1,6 @@
-# AGENTS.md — 30-Agent Cognitive System
+# 30-agents operator guide
 
-> **Docs:** [Windows smoke checklist](./docs/WINDOWS_SMOKE.md) · [12-factor methodology](./methodology/) (third-party, Apache-2.0) · [Third-party notices](./THIRD_PARTY_NOTICES.md)
+> **Docs:** [Windows smoke checklist](WINDOWS_SMOKE.md) · [12-factor methodology](../methodology/) (third-party, Apache-2.0) · [Third-party notices](../THIRD_PARTY_NOTICES.md)
 
 ---
 
@@ -111,7 +111,7 @@ All config lives in `.env` → `core/config.py` → `settings` singleton.
 The `methodology/` folder contains the **12-factor agents** methodology by
 [Dexter Horthy / humanlayer](https://github.com/humanlayer/12-factor-agents),
 distributed under the **Apache License 2.0**. It is third-party content — see
-[`methodology/README.md`](./methodology/README.md) and [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md).
+[`methodology/README.md`](../methodology/README.md) and [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
 
 | Factor | File | Maps to |
 |--------|------|---------|
@@ -200,11 +200,11 @@ Two stdio bridges expose the REST API as MCP tools:
 
 Both proxy MCP `tools/list` and `tools/call` to `localhost:8000`.
 
-> **API_SECRET is required.** The API middleware fails closed: with no `API_SECRET` in `.env`, every endpoint except `/api/health` returns `503`. Create `.env` with `API_SECRET=<value>` (see Config table) and set the same value as `AGENTS30_API_SECRET` in each client's MCP config.
+> **Set `API_SECRET`.** Auth is open by default: if `API_SECRET` isn't set, every endpoint accepts requests without a key (`api/server.py`, `_secret_ok`). When it is set, requests without the right key get `401`. Put `API_SECRET=<value>` in `.env` and use the same value for `AGENTS30_API_SECRET` in each client's MCP config.
 
 ### Cursor wiring
 
-Project MCP config is committed at `.cursor/mcp.json`. Open this repo in Cursor, start the API (`python main.py serve`), then verify **Settings → MCP** shows `30agents` connected.
+A template is at `examples/cursor-mcp.json`. Copy it to `.cursor/mcp.json` (that path is gitignored), set the secret, open the repo in Cursor, start the API (`python main.py serve`), then verify **Settings → MCP** shows `30agents` connected.
 
 ```json
 {
@@ -243,7 +243,7 @@ No separate daemon is needed — the MCP client spawns the bridge process automa
 
 | Client | Config location | Secret key |
 |---|---|---|
-| Cursor | project `.cursor/mcp.json` (committed template, `CHANGE_ME`) | `env.AGENTS30_API_SECRET` |
+| Cursor | project `.cursor/mcp.json` (copy of `examples/cursor-mcp.json`, `CHANGE_ME`) | `env.AGENTS30_API_SECRET` |
 | OpenCode | `~/.config/opencode/opencode.jsonc` → `mcp.30agents` | `env` |
 | Codex | `~/.codex/config.toml` → `[mcp_servers.30agents]` | `[mcp_servers.30agents.env]` |
 | Claude Desktop | `%APPDATA%\Claude\claude_desktop_config.json` | `env` |
@@ -455,8 +455,7 @@ The `squad run` command calls the REST endpoint and displays results with rich f
 | `start` | One-command ready: venv + Redis + Ollama + API |
 | `scripts/shell_init.sh` | Puts venv on PATH; aliases `agents-up` / `agents-status` / … |
 | `tools/mcp_bridge.py` | MCP stdio bridge — Cursor/OpenCode tools mapped to REST endpoints |
-| `.cursor/mcp.json` | Cursor project MCP config — registers `30agents` server |
-| `.cursor/rules/30-agents-mcp.mdc` | Cursor rule — when/how to use 30agents MCP tools |
+| `examples/cursor-mcp.json` | Cursor MCP config template that registers the `30agents` server |
 | `squads/__init__.py` | Exports all 6 squad configs + leaders |
 | `squads/base.py` | `SquadLeader`, `SquadConfig`, `SquadMember`, `RoutingRule` base classes |
 | `squads/registry.py` | `register_all_squads()` — registers leaders with agent graph |

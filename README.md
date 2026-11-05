@@ -88,7 +88,7 @@ python main.py outreach --city Vancouver     # dry-run outreach pipeline
 pytest                                       # test suite
 ```
 
-**Docs:** [PRD](docs/PRD.md) · [ADR-001 — pluggable inference](docs/ADR-001.md) · [AGENTS.md](AGENTS.md) (operator manual) · [Windows smoke checklist](docs/WINDOWS_SMOKE.md)
+**Docs:** [PRD](docs/PRD.md) · [ADR-001 — pluggable inference](docs/ADR-001.md) · [Operator guide](docs/OPERATIONS.md) · [Windows smoke checklist](docs/WINDOWS_SMOKE.md)
 
 **LLM backend:** default is **NVIDIA NIM** (cloud, needs an API key) (`LLM_BACKEND=nim`, needs `NVIDIA_API_KEY`/`NIM_API_KEY`). For fully local, key-free inference set `LLM_BACKEND=ollama` and run Ollama — health then reports the active backend. Without either the API still runs; health reports `degraded`.
 

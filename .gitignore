@@ -17,3 +17,9 @@ build/
 .DS_Store
 .env
 .antigravitycli/
+
+# Local agent/editor files
+.cursor/
+AGENTS.md
+CLAUDE.md
+omo-config.json
